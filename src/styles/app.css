@@ -333,6 +333,9 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); min-height: ca
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
+/* Points Challenges: the embedded games page fills the screen below the status bar. */
 .games-phone .screen-scroll { overflow: hidden; background: #fbefe3; }
 .games-phone .status-bar { background: #fbefe3; }
 .games-frame { display: block; width: 100%; height: calc(var(--screen-height) - 54px); border: 0; }
+.mascot-icon { overflow: hidden; align-items: flex-end; }
+.mascot-icon img { width: 46px; height: 48px; margin-bottom: -10px; image-rendering: pixelated; }

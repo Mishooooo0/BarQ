@@ -31,7 +31,7 @@ The browser tests use an installed Google Chrome. Playwright starts a local deve
 | Rewards | Help sheet, one deterministic demo wheel spin, quest exploration, simulated marathon entry |
 | Cards | Three fictional cards, freeze/unfreeze, non-sensitive demo details, spending-limit slider, card selection sheet |
 | Market | Six category routes, product search, favorites, product details, quantity controls, cart and validated simulated checkout |
-| More / Products | Fictional wallet/local/international transfers, simulated money requests, Baloot lobby, Youth Accounts, Domestic Labor Salaries demo, Offers, support topics, sticky Products header and vertical scrolling |
+| More / Products | Fictional wallet/local/international transfers, simulated money requests, Baloot lobby, Points Challenges (four Arabic mini-games with the pixel mascot, served from `public/games/` at `/points-games`), Youth Accounts, Domestic Labor Salaries demo, Offers, support topics, sticky Products header and vertical scrolling |
 
 The five-tab navigation stays visible across the app. Detail routes have back controls; dialogs support Escape, keyboard focus containment, and browser Back. Reduced-motion preferences and iOS bottom safe-area insets are respected.
 
