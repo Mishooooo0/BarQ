@@ -16,7 +16,7 @@ test('points challenges opens from Products', async ({ page }) => {
   await expect(page.locator('iframe[title="Points Challenges"]')).toBeVisible();
 });
 
-test('AI Analyst shows insights, plans a day from the wallet slider and plans a hangout', async ({ page }) => {
+test('AI Analyst plans a day from the wallet slider; Hangouts is its own page and plans for the group', async ({ page }) => {
   fund('meshal', 1860.4);
   await signIn(page);
   await page.getByRole('link', { name: /AI Analyst/ }).click();
@@ -30,7 +30,9 @@ test('AI Analyst shows insights, plans a day from the wallet slider and plans a 
   await page.getByRole('button', { name: 'Plan my day' }).click();
   await expect(page.locator('.plan-item').first()).toBeVisible();
   await expect(page.locator('.analyst-bubble')).toContainText('SAR 150');
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await expect(page.getByRole('tab', { name: 'Hangout' })).toHaveCount(0);
+  await page.getByRole('link', { name: /Hangouts/ }).click();
+  await expect(page.getByRole('heading', { name: 'Hangouts', exact: true })).toBeVisible();
   await page.getByRole('radio', { name: /BarQ Developers/ }).click();
   await page.getByRole('slider', { name: 'Your hangout budget' }).fill('120');
   await page.getByRole('button', { name: 'Plan the hangout' }).click();
@@ -53,18 +55,28 @@ test('a failing backend shows an error state instead of breaking the app', async
   await expect(page.getByRole('heading', { name: 'Transactions', exact: true })).toBeVisible();
 });
 
-test('Claude advice appears in the Analyst bubble and tips', async ({ page }) => {
+test('Barq advice appears in the Analyst bubble and tips, with no Claude name on screen', async ({ page }) => {
   await signIn(page);
   await page.goto('/analyst');
   await expect(page.locator('.analyst-bubble')).toHaveText('Fake advice for Meshal');
   await expect(page.locator('.tip-list li')).toHaveCount(2);
+  await expect(page.locator('.ai-source')).toHaveText('Answered by Barq AI.');
+  expect(await page.locator('body').innerText()).not.toMatch(/claude/i);
 });
 
-test('a member can add someone to a group from the Hangout tab', async ({ page }) => {
+test('Hangouts opens from Home and More', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('link', { name: /Hangouts/ }).click();
+  await expect(page.getByRole('heading', { name: 'Hangouts', exact: true })).toBeVisible();
+  await page.goto('/more');
+  await page.getByRole('link', { name: /Hangouts/ }).click();
+  await expect(page.getByRole('list', { name: 'Members' })).toBeVisible();
+});
+
+test('a member can add someone to a group on the Hangouts page', async ({ page }) => {
   addGroup('weekend', 'Weekend crew', ['meshal', 'abdullah-m']);
   await signIn(page);
-  await page.goto('/analyst');
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.goto('/hangouts');
   await page.getByRole('radio', { name: /Weekend crew/ }).click();
   await page.getByLabel('Add someone to Weekend crew').selectOption({ label: 'Sultana' });
   await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -97,6 +109,7 @@ test('Market pay at places saves a back-dated payment and charges the wallet', a
   await expect(record).toContainText('Groceries');
   await expect(record).toContainText(lastMonth);
   await expect(record).toContainText('120.00');
+  await expect(page.locator('.payment-done .payment-mascot')).toBeVisible();
   await page.getByRole('button', { name: 'Choose another place' }).click();
   await expect(page.locator('.payments-table tbody tr')).toHaveCount(1);
   await page.getByRole('navigation').getByRole('link', { name: 'Home', exact: true }).click();
@@ -105,8 +118,7 @@ test('Market pay at places saves a back-dated payment and charges the wallet', a
 });
 
 async function planAndAsk(page: import('@playwright/test').Page) {
-  await page.goto('/analyst');
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.goto('/hangouts');
   await page.getByRole('slider', { name: 'Your hangout budget' }).fill('100');
   await page.getByRole('button', { name: 'Plan the hangout' }).click();
   await expect(page.locator('.plan-item').first()).toBeVisible();
@@ -130,11 +142,11 @@ test('who pays: one "I will pay it" wins and that person pays the bill', async (
   await expect(card).toContainText('1 of 5 voted');
   for (const id of ['abdullah-m', 'abdullah-s', 'sultana']) await voteAs(page, id, 'split');
   await voteAs(page, 'rasel', 'own');
-  await page.getByRole('tab', { name: 'Insights' }).click();
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.reload();
   await expect(card.locator('.hangout-result')).toHaveText('Meshal pays the bill');
   await expect(card).toContainText('split 3 · own 1 · I will pay 1');
   await card.getByRole('button', { name: /^Pay/ }).click();
+  await expect(card.locator('.payment-done .payment-mascot')).toBeVisible();
   await expect(card.locator('.hangout-status')).toHaveText('Paid');
 });
 
@@ -146,21 +158,27 @@ test('who pays: two volunteers play Flappy Bird and the highest score pays', asy
   await voteAs(page, 'sultana', 'pay');
   for (const id of ['abdullah-m', 'abdullah-s']) await voteAs(page, id, 'split');
   await voteAs(page, 'rasel', 'own');
-  await page.getByRole('tab', { name: 'Insights' }).click();
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.reload();
   await expect(card.locator('.hangout-result')).toHaveText('Meshal vs Sultana: the highest score pays');
   await card.getByRole('link', { name: 'Play the game' }).click();
-  for (const [name, score] of [['Meshal', 3], ['Sultana', 8]] as const) {
-    await expect(page.getByRole('heading', { name: `${name}'s turn` })).toBeVisible();
-    await page.getByRole('button', { name: 'Start Flappy Bird' }).click();
+  // Playing the real game in a test is not practical, so the frame reports a finished flight the way the game does.
+  const finishFlight = async (points: number) => {
     const game = page.frameLocator('iframe[title="Flappy Bird"]');
     await expect(game.locator('#g-fly')).toBeVisible();
-    // Playing the real game in a test is not practical, so the frame reports a finished flight the way the game does.
-    await page.frameLocator('iframe[title="Flappy Bird"]').locator('body').evaluate((_, points) => parent.postMessage({ type: 'points-games:score', game: 'fly', score: points }, location.origin), score);
-  }
-  await expect(page.getByRole('heading', { name: 'Sultana pays the bill' })).toBeVisible();
-  await page.getByRole('link', { name: 'Back to the hangout' }).click();
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+    await game.locator('body').evaluate((_, value) => parent.postMessage({ type: 'points-games:score', game: 'fly', score: value }, location.origin), points);
+  };
+  // Meshal plays his own turn on his phone.
+  await page.getByRole('button', { name: 'Play Flappy Bird' }).click();
+  await finishFlight(3);
+  await expect(page.getByRole('list', { name: 'Scores' })).toContainText('3');
+  await expect(page.getByRole('button', { name: 'Play Flappy Bird' })).toHaveCount(0);
+  // Sultana plays on her own phone: her turn is recorded through the API, and Meshal's board updates by itself.
+  const sultana = await apiToken(page, 'sultana');
+  const hangouts = await (await page.request.get('/api/hangouts', { headers: { authorization: `Bearer ${sultana}` } })).json();
+  const scored = await page.request.post(`/api/game-sessions/${hangouts[0].sessionId}/scores`, { headers: { authorization: `Bearer ${sultana}` }, data: { playerId: 'sultana', points: 8 } });
+  expect(scored.status()).toBe(200);
+  await expect(page.getByRole('heading', { name: 'Sultana pays the bill' })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('link', { name: 'Back to Hangouts' }).click();
   await expect(page.locator('.hangout-card').first().locator('.hangout-result')).toHaveText('Sultana pays the bill');
 });
 
@@ -172,8 +190,7 @@ test('who pays: a split/own tie ends as everyone pays their own', async ({ page 
   await voteAs(page, 'abdullah-m', 'split');
   await voteAs(page, 'abdullah-s', 'own');
   await voteAs(page, 'sultana', 'own');
-  await page.getByRole('tab', { name: 'Insights' }).click();
-  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.reload();
   await card.getByRole('button', { name: 'End the vote now' }).click();
   await expect(card.locator('.hangout-result')).toHaveText('Everyone pays their own');
   await expect(card.locator('.dues-list li')).toHaveCount(5);
@@ -186,10 +203,10 @@ test('when Claude-Dev is slow the Ring API plans the day and the screen says so'
   fund('meshal', 500);
   await signIn(page);
   await page.goto('/analyst');
-  await expect(page.locator('.ai-source').first()).toHaveText('Answered by Claude.');
+  await expect(page.locator('.ai-source').first()).toHaveText('Answered by Barq AI.');
   await page.getByRole('tab', { name: 'Daily plan' }).click();
   await page.getByRole('slider', { name: "Today's budget" }).fill('99');
   await page.getByRole('button', { name: 'Plan my day' }).click();
   await expect(page.locator('.plan-item').first()).toBeVisible();
-  await expect(page.locator('.ai-source')).toContainText('Answered by the Ring API because Claude-Dev was slow or unavailable (Claude-Dev took too long to answer)');
+  await expect(page.locator('.ai-source')).toContainText('Answered by Barq AI (backup engine, because the main one was slow or unavailable).');
 });

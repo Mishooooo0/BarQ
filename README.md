@@ -42,6 +42,10 @@ Set the key once in your Windows user environment, then open a new terminal so t
 
 **Ring API fallback:** Claude-Dev's response time varies a lot (about 2 seconds in one test, about 77 seconds in another). If it takes longer than `CLAUDE_DEV_TIMEOUT_MS`, returns an error, or keeps giving unusable answers, the Ring API answers instead (`ring-fast` answered in about 6 seconds in testing). The screen says which one answered, and `GET /api/health` shows both connections under `ai`.
 
+Users only ever see the assistant as **Barq**: the screens say "Answered by Barq AI" (or "Barq AI (backup engine…)" when the Ring API answered), and error messages never name the engines.
+
+**Structured output in English:** every request carries `language: "English"` in its JSON payload plus the JSON schema of the reply. The Ring API enforces the schema (`response_format: json_schema`); Claude-Dev is sent the same schema (`output_config`). Any reply containing Chinese, Japanese, Korean, Cyrillic or Thai text is rejected and retried (Arabic is allowed because place names use it).
+
 Claude-Dev ignores the API's structured-output option and replaces client tools with its own, so the server asks for JSON in the prompt and validates every answer. Place ids must exist in the Places database, prices come from the database rather than from Claude, totals are kept within the budget, and an unusable answer is retried once. Calls are queued one at a time because the account allows one request at a time.
 
 ## Running 24/7
@@ -97,22 +101,22 @@ Send the token as `Authorization: Bearer <token>`. Errors are always JSON: `{ "e
 
 ## AI Analyst
 
-Open it from the card on Home or from More → Explore. The character is the pixel-art analyst from the supplied character sheet (`src/assets/analyst/`), and his pose changes with what he is saying.
+Open it from the card on Home or from More → Explore. The character is the pixel-art analyst from the supplied character sheet (`src/assets/analyst/`), and his pose changes with what he is saying. After every payment (Pay at places, Market order, transfer, hangout bill) Barq appears giving an OK sign.
 
 - **Insights:** today, week and 30-day spending; suggested daily, weekly and monthly budgets; how long the balance lasts; overspending alerts by category; upcoming subscription renewals; spending by category. These are computed from your data and load instantly. Claude then writes the headline and tips.
 - **Daily plan:** choose a budget with the slider, from SAR 0 up to what is in your wallet. Claude builds the day from Riyadh places that fit, weighted by your own habits, and shows what stays in your wallet.
-- **Hangout:** choose a group and your budget, and add people to the group. The plan uses the **smallest** budget in the group so nobody is put on the spot. Only that smallest budget is sent to Claude; other members' budgets and balances are never shown or sent.
+- **Hangouts** (its own page, from Home, More or the Analyst): choose a group and your budget, and add people to the group. The plan uses the **smallest** budget in the group so nobody is put on the spot. Only that smallest budget is sent to Claude; other members' budgets and balances are never shown or sent.
 
 Facts and candidate places are computed in [`server/analyst.mjs`](server/analyst.mjs); the AI clients (Claude-Dev, then the Ring API) are in [`server/ai.mjs`](server/ai.mjs). Tests use a local stand-in for both (`tests/fake-claude.mjs`) and never call the real endpoints.
 
 ## Who's paying? (hangout votes)
 
-After the analyst plans a hangout, tap **Ask the group: who's paying?**. Every member of the group votes from their own phone (Analyst → Hangout) for one of three choices: **Split the bill**, **Everyone pays their own**, or **I will pay it**. Votes stay hidden until the vote ends, which happens when everyone has voted or when the person who started it ends it early.
+After the analyst plans a hangout on the **Hangouts** page, tap **Ask the group: who's paying?**. Every member of the group votes from their own phone (Hangouts page) for one of three choices: **Split the bill**, **Everyone pays their own**, or **I will pay it**. Votes stay hidden until the vote ends, which happens when everyone has voted or when the person who started it ends it early.
 
 | Votes | Result |
 | --- | --- |
 | Exactly one "I will pay it" (e.g. 3 split, 1 I will pay) | That person pays the whole bill |
-| Two or more "I will pay it" | Those people play Flappy Bird on one phone, one after another; the highest score pays |
+| Two or more "I will pay it" | Those people play Flappy Bird, each on their own phone (or the host hands one phone around); the highest score pays |
 | Nobody volunteers | Split or own, whichever has more votes |
 | Nobody volunteers and split ties with own | Everyone pays their own |
 

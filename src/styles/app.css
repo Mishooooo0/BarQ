@@ -477,3 +477,16 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); min-height: ca
 .score-board li:last-child { border-bottom: 0; }
 .score-board li.payer { background: #fff6e0; }
 .hangout-frame { display: block; width: 100%; height: 600px; border: 0; border-radius: 16px; background: #fbefe3; }
+
+/* Payment done: Barq's OK sign over the success panel (every payment) */
+.payment-done { position: relative; margin-top: 70px; padding-top: 26px; text-align: left; overflow: visible; }
+.payment-done > svg { margin: 0 0 10px; }
+.payment-done h2 { padding-right: 112px; }
+.payment-done .payment-mascot { position: absolute; right: -6px; top: -72px; width: 148px; height: auto; pointer-events: none;
+  /* The artwork is cut at the waist; fade that edge into the panel. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 98%); mask-image: linear-gradient(to bottom, #000 72%, transparent 98%); }
+.payment-done .receipt-table { position: relative; z-index: 1; }
+.payment-done .receipt-table, .payment-done > .money { margin-top: 18px; }
+.payment-done .primary-button, .payment-done .secondary-button { margin-top: 14px; }
+.analyst-card + .analyst-card { margin-top: -14px; }
+.hangouts-link { margin-top: 22px; }

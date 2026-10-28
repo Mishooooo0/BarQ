@@ -2,7 +2,8 @@
 // POST /v1/messages answers like Claude-Dev (Messages API); POST /ring/v1/chat/completions answers like the Ring API
 // (OpenAI chat completions). Both choose from the options in the prompt's DATA block.
 // Budget 77 answers with junk first (to test the retry); budget 88 always names an unknown place;
-// budget 99 makes Claude-Dev take 3 seconds (to test the Ring API fallback).
+// budget 99 makes Claude-Dev take 3 seconds (to test the Ring API fallback); budget 66 replies in Chinese first.
+// Requests must ask for English and carry a JSON schema (output_config for Claude-Dev, response_format for the Ring API).
 import http from 'node:http';
 
 function answer(prompt) {
@@ -12,6 +13,7 @@ function answer(prompt) {
   if (task === 'advice') return { headline: `Fake advice for ${data.name}`, tips: ['Cut one cafe visit a week.', 'Netflix renews soon.'], pose: 'thumbs' };
   const budget = data.budget ?? data.perPersonBudget;
   if (budget === 77 && !retry) return 'Sure! Here is your plan: coffee then lunch.';
+  if (budget === 66 && !retry) return { message: '这是你的计划', pose: 'idea', items: [] };
   if (budget === 88) return { message: 'Plan', pose: 'idea', items: [{ time: '10:00', label: 'Coffee', category: 'cafe', placeId: 'no-such-place' }] };
   const order = task === 'daily-plan' ? [['cafe', '09:00', 'Morning coffee'], ['food', '13:30', 'Lunch']] : [['food', '19:30', 'Dinner'], ['cafe', '21:30', 'Coffee after']];
   const items = []; let left = budget;
@@ -20,7 +22,7 @@ function answer(prompt) {
     const option = (data.options[category] ?? []).find(o => o.cost <= left);
     if (option) { items.push({ time, label, category, placeId: option.placeId }); left -= option.cost; }
   }
-  return { message: items.length ? `Fake plan for SAR ${budget}.` : 'Nothing fits, try a no-spend day.', pose: items.length ? 'idea' : 'piggy', items };
+  return { message: items.length ? `Fake plan for SAR ${budget}.` : 'Nothing fits, try a no-spend day.', pose: items.length ? 'idea' : 'thumbs', items };
 }
 
 export function startFakeClaude(port = 0) {
@@ -34,6 +36,8 @@ export function startFakeClaude(port = 0) {
       const request = JSON.parse(body);
       const prompt = request.messages.at(-1).content;
       const promptText = typeof prompt === 'string' ? prompt : prompt.map(p => p.text).join('');
+      const structured = ring ? request.response_format?.type === 'json_schema' && request.response_format.json_schema?.schema : request.output_config?.format?.type === 'json_schema' && request.output_config.format.schema;
+      if (!structured || !promptText.includes('"language":"English"')) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"missing structured output or language"}'); }
       const value = answer(promptText);
       const text = typeof value === 'string' ? value : JSON.stringify(value);
       const reply = () => {

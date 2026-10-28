@@ -5,6 +5,7 @@ import { useWallet } from '../../app/WalletProvider';
 import { useSession } from '../../app/SessionProvider';
 import { api, errorMessage } from '../../lib/api';
 import { ErrorState, Money } from '../../components/ui/Primitives';
+import { PaymentDone } from '../../components/PaymentDone';
 import type { Hangout, User, VoteChoice } from '../../types/api';
 
 export const choices: { id: VoteChoice; label: string }[] = [{ id: 'split', label: 'Split the bill' }, { id: 'own', label: 'Everyone pays their own' }, { id: 'pay', label: 'I will pay it' }];
@@ -20,7 +21,7 @@ export function HangoutVotes({ hangouts, error, onRetry, onChange }: { hangouts:
 
 function HangoutCard({ hangout, onChange }: { hangout: Hangout; onChange: () => void }) {
   const { user, refresh } = useWallet(); const { setUser } = useSession();
-  const [busy, setBusy] = useState(''); const [error, setError] = useState('');
+  const [busy, setBusy] = useState(''); const [error, setError] = useState(''); const [justPaid, setJustPaid] = useState<number | null>(null);
   const act = async (key: string, request: () => Promise<unknown>) => {
     setBusy(key); setError('');
     try { await request(); onChange(); }
@@ -29,7 +30,7 @@ function HangoutCard({ hangout, onChange }: { hangout: Hangout; onChange: () => 
   };
   const vote = (choice: VoteChoice) => act(choice, () => api(`/api/hangouts/${hangout.id}/vote`, { method: 'POST', body: { choice } }));
   const close = () => act('close', () => api(`/api/hangouts/${hangout.id}/close`, { method: 'POST' }));
-  const pay = () => act('pay', async () => { const result = await api<{ user: User }>(`/api/hangouts/${hangout.id}/pay`, { method: 'POST' }); setUser(result.user); void refresh(); });
+  const pay = () => act('pay', async () => { const due = myDue?.amount ?? 0; const result = await api<{ user: User }>(`/api/hangouts/${hangout.id}/pay`, { method: 'POST' }); setUser(result.user); setJustPaid(due); void refresh(); });
   const myDue = hangout.dues.find(d => d.userId === user.id);
   const isPlayer = hangout.result?.players?.some(p => p.id === user.id);
 
@@ -52,6 +53,7 @@ function HangoutCard({ hangout, onChange }: { hangout: Hangout; onChange: () => 
       {hangout.status === 'decided' && myDue && !myDue.paid && <button type="button" className="primary-button" onClick={pay} disabled={!!busy || myDue.amount > user.balance}>{busy === 'pay' ? 'Paying…' : <>Pay <Money amount={myDue.amount} /></>}</button>}
       {hangout.status === 'decided' && myDue && !myDue.paid && myDue.amount > user.balance && <p className="error-text">Not enough balance. Add money from Home.</p>}
     </>}
+    {justPaid != null && <PaymentDone title="Payment done"><Money amount={justPaid} /><p>Paid from your barq wallet and saved in Payments.</p></PaymentDone>}
     {error && <p className="error-text" role="alert">{error}</p>}
   </article>;
 }

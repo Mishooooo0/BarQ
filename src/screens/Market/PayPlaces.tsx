@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, MapPin, Search, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Search, Star } from 'lucide-react';
+import { PaymentDone } from '../../components/PaymentDone';
 import { useWallet } from '../../app/WalletProvider';
 import { api, errorMessage, isAbort } from '../../lib/api';
 import { riyadhDay } from '../../lib/format';
@@ -53,10 +54,10 @@ export function PayPlaces() {
 
   if (selected) return <><DetailHeader title="Pay at places" fallback="/market" /><div className="detail-content pay-content">
     <button type="button" className="text-button login-back" onClick={() => setSelected(null)}><ArrowLeft size={16} /> Choose another place</button>
-    {receipt ? <div className="success-panel" role="status"><CheckCircle2 /><h2>Payment saved</h2>
+    {receipt ? <PaymentDone title="Payment saved">
       <dl className="receipt-table" aria-label="Payment record"><div><dt>Name</dt><dd>{receipt.name}</dd></div><div><dt>Price</dt><dd><Money amount={receipt.price} /></dd></div><div><dt>Category</dt><dd>{receipt.category}</dd></div><div><dt>Date</dt><dd>{receipt.date}</dd></div></dl>
       <p>Saved to the Payments database as {receipt.id}. Your balance is now <Money amount={state.balance} />.</p>
-    </div> : <>
+    </PaymentDone> : <>
       <div className="info-panel pay-summary"><h3>{selected.name}</h3><p>{categoryName(selected.categoryId)} · {selected.address}</p><div className="pay-price"><Money amount={selected.estimatedCost} /></div></div>
       <label className="field-label">Payment date<input type="date" value={date} min={earliest} max={today} onChange={e => { setDate(e.target.value); setPayError(''); }} aria-invalid={!!dateError} /></label>
       {dateError && <p className="error-text" role="alert">{dateError}</p>}

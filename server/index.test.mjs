@@ -179,6 +179,13 @@ test('the analyst retries an unusable answer and rejects invented places', async
   assert.match(invented.body.error, /unknown placeId/);
 });
 
+test('answers must be in English: a Chinese reply is rejected and retried', async () => {
+  const token = await login('sultana');
+  const { status, body } = await call('POST', '/api/analyst/daily', { token, body: { budget: 66 } });
+  assert.equal(status, 200);
+  assert.equal(body.message, 'Fake plan for SAR 66.');
+});
+
 test('without a key the analyst explains how to connect it', async () => {
   const key = process.env.CLAUDE_DEV_KEY; delete process.env.CLAUDE_DEV_KEY;
   try {
@@ -317,6 +324,7 @@ test('scenario 2: two "I will pay it" play the game and the highest score pays',
   const session = (await call('GET', `/api/game-sessions/${playing.sessionId}`, { token: t.sultana })).body;
   assert.deepEqual(session.players, ['abdullah-s', 'sultana']);
   assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t.meshal, body: { playerId: 'sultana', points: 1 } })).status, 403, 'only players or the host');
+  assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t['abdullah-s'], body: { playerId: 'sultana', points: 1 } })).status, 403, 'a player cannot play for someone else');
   assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t.sultana, body: { playerId: 'sultana', points: 4 } })).status, 200);
   assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t['abdullah-s'], body: { playerId: 'abdullah-s', points: 9 } })).status, 200);
   const decided = (await call('GET', '/api/hangouts', { token: t.sultana })).body.find(h => h.id === hangout.id);

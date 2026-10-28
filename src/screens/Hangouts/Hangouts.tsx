@@ -1,0 +1,98 @@
+import { useCallback, useEffect, useState } from 'react';
+import { UserPlus, Users } from 'lucide-react';
+import { useWallet } from '../../app/WalletProvider';
+import { useSession } from '../../app/SessionProvider';
+import { AI_TIMEOUT_MS, api, errorMessage } from '../../lib/api';
+import { DetailHeader, ErrorState, MockNote, Money } from '../../components/ui/Primitives';
+import { AnalystSprite } from '../Analyst/AnalystSprite';
+import { AnsweredBy, BudgetSlider, PlanView, useRequest, wholeRiyals } from '../Analyst/parts';
+import { HangoutVotes } from './HangoutVotes';
+import type { Group, Hangout, HangoutPlan, Pose } from '../../types/api';
+
+/** Hangouts: your groups, the AI plan for an outing, and the group's "who pays?" votes. */
+export function Hangouts() {
+  const { state: wallet, user, directory } = useWallet(); const { setUser } = useSession();
+  const balance = wholeRiyals(wallet.balance);
+  const [plan, planHangout] = useRequest<HangoutPlan>();
+  const [groups, loadGroups] = useRequest<Group[]>();
+  const [hangouts, loadHangouts] = useRequest<Hangout[]>();
+  const [asking, setAsking] = useState<{ busy: boolean; error: string }>({ busy: false, error: '' });
+  const [budgetChoice, setBudgetChoice] = useState(() => wholeRiyals(user.hangoutBudget ?? 100));
+  const [groupId, setGroupId] = useState('');
+  const [newMember, setNewMember] = useState('');
+  const [adding, setAdding] = useState<{ busy: boolean; error: string; done: string }>({ busy: false, error: '', done: '' });
+
+  const fetchGroups = useCallback(() => loadGroups(() => api<Group[]>('/api/me/groups')), [loadGroups]);
+  useEffect(() => { void fetchGroups(); }, [fetchGroups]);
+  useEffect(() => { if (!groupId && groups.data?.length) setGroupId(groups.data[0].id); }, [groups.data, groupId]);
+  const fetchHangouts = useCallback(() => groupId ? loadHangouts(() => api<Hangout[]>(`/api/hangouts?groupId=${encodeURIComponent(groupId)}`)) : Promise.resolve(), [groupId, loadHangouts]);
+  // Friends vote from their own phones, so the list refreshes while this page is open.
+  useEffect(() => {
+    if (!groupId) return;
+    void fetchHangouts();
+    const timer = setInterval(() => void fetchHangouts(), 10_000);
+    return () => clearInterval(timer);
+  }, [groupId, fetchHangouts]);
+  // The budget can never exceed what is in the wallet, including after the balance changes.
+  const budget = Math.min(budgetChoice, balance);
+
+  const runPlan = () => planHangout(async () => {
+    const result = await api<HangoutPlan>('/api/analyst/hangout', { method: 'POST', body: { budget, groupId }, timeoutMs: AI_TIMEOUT_MS });
+    setUser({ ...user, hangoutBudget: budget });
+    return result;
+  });
+  const askGroup = async () => {
+    if (!plan.data || asking.busy) return;
+    setAsking({ busy: true, error: '' });
+    try {
+      await api<Hangout>('/api/hangouts', { method: 'POST', body: { groupId: plan.data.group.id, items: plan.data.items.filter(i => i.place).map(i => ({ time: i.time, label: i.label, placeId: i.place!.id })) } });
+      setAsking({ busy: false, error: '' });
+      void fetchHangouts();
+    } catch (error) { setAsking({ busy: false, error: errorMessage(error) }); }
+  };
+  const addMember = async () => {
+    if (!newMember || adding.busy) return;
+    setAdding({ busy: true, error: '', done: '' });
+    try {
+      const updated = await api<Group>(`/api/groups/${encodeURIComponent(groupId)}/members`, { method: 'POST', body: { userId: newMember } });
+      void fetchGroups();
+      setNewMember('');
+      setAdding({ busy: false, error: '', done: `${updated.members.at(-1)?.name ?? 'They'} joined ${updated.name}.` });
+    } catch (error) { setAdding({ busy: false, error: errorMessage(error), done: '' }); }
+  };
+
+  let pose: Pose = 'places'; let speech = "Pick your group and your budget. I'll plan around the smallest budget so nobody feels awkward.";
+  if (plan.error) { pose = 'think'; speech = plan.error; }
+  else if (plan.loading) { pose = 'laptop'; speech = 'Finding places that fit everyone… this can take up to a minute.'; }
+  else if (plan.data) { pose = plan.data.pose; speech = plan.data.message; }
+
+  const group = groups.data?.find(g => g.id === groupId);
+  const outside = group ? directory.filter(d => !group.members.some(m => m.id === d.id)) : [];
+  return <><DetailHeader title="Hangouts" fallback="/" /><div className="detail-content analyst-content">
+    <section className="analyst-hero" aria-live="polite"><AnalystSprite pose={pose} /><p className="analyst-bubble">{speech}</p></section>
+    {groups.error ? <ErrorState message={groups.error} onRetry={fetchGroups} /> : !groups.data ? <p className="muted center" role="status">Loading groups…</p> : !groups.data.length ? <p className="muted">You are not in any group yet.</p> : <>
+      <div className="group-chips" role="radiogroup" aria-label="Group">{groups.data.map(g => <button key={g.id} role="radio" aria-checked={g.id === groupId} onClick={() => setGroupId(g.id)}><Users size={14} /> {g.name}</button>)}</div>
+      {group && <ul className="member-list" aria-label="Members">{group.members.map(m => <li key={m.id}><span className={`dot ${m.ready || m.id === user.id ? 'ready' : ''}`} />{m.id === user.id ? `${m.name} (you)` : m.name}<small>{m.id === user.id ? 'your budget below' : m.ready ? 'budget set' : 'no budget yet'}</small></li>)}</ul>}
+      {group && outside.length > 0 && <div className="add-member">
+        <label className="sr-only" htmlFor="add-member">Add someone to {group.name}</label>
+        <select id="add-member" value={newMember} onChange={e => { setNewMember(e.target.value); setAdding({ busy: false, error: '', done: '' }); }}><option value="">Add someone to {group.name}…</option>{outside.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <button type="button" className="secondary-button" onClick={addMember} disabled={!newMember || adding.busy}><UserPlus size={15} />{adding.busy ? 'Adding…' : 'Add'}</button>
+      </div>}
+      {adding.error && <p className="error-text" role="alert">{adding.error}</p>}
+      {adding.done && <p className="success-text" role="status">{adding.done}</p>}
+      <BudgetSlider label="Your hangout budget" value={budget} max={balance} onChange={setBudgetChoice} />
+      <p className="fine-print">Only you see your budget. Friends see the plan, never each other's numbers.</p>
+      <button className="primary-button" onClick={runPlan} disabled={plan.loading || !groupId}>{plan.loading ? 'Planning…' : 'Plan the hangout'}</button>
+      {plan.error && <ErrorState message={plan.error} onRetry={runPlan} />}
+      {plan.data && !plan.error && <>
+        <div className="info-panel per-person"><p>Budget per person everyone can manage</p><Money amount={plan.data.perPersonBudget} />{plan.data.pending.length > 0 && <p className="fine-print">Planned without {plan.data.pending.join(', ')}: no budget set yet.</p>}</div>
+        <PlanView items={plan.data.items} footer={<><div><span>Per person</span><Money amount={plan.data.perPersonTotal} /></div><div><span>Whole group ({plan.data.groupSize})</span><Money amount={plan.data.groupTotal} /></div></>} />
+        <AnsweredBy info={plan.data} />
+        {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? 'Starting the vote…' : "Ask the group: who's paying?"}</button>}
+        {asking.error && <p className="error-text" role="alert">{asking.error}</p>}
+      </>}
+      <section className="analyst-section"><h3>Who's paying? Group votes</h3><p className="fine-print">One "I will pay it" pays. Two or more play Flappy Bird, each on their own phone, and the highest score pays. Otherwise the most votes win, and a tie means everyone pays their own.</p><HangoutVotes hangouts={hangouts.data} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} /></section>
+    </>}
+    <MockNote />
+  </div></>;
+}

@@ -374,6 +374,8 @@ route('POST', '/api/game-sessions/:id/scores', async ({ req, params }) => {
   return update('games', db => {
     const session = db.sessions.find(s => s.id === params.id) ?? fail(404, 'Session not found.');
     if (session.createdBy !== id && !(session.hangoutId && session.players.includes(id))) fail(403, 'Only the host can enter scores.');
+    // In a hangout game each volunteer plays their own turn on their own phone; only the host may enter others' scores.
+    if (session.hangoutId && session.createdBy !== id && body.playerId !== id) fail(403, 'You can only play your own turn.');
     recordScore(session, { playerId: body.playerId, points: body.points });
     // A hangout's game decides who pays the bill.
     const hangout = session.hangoutId ? (db.hangouts ?? []).find(h => h.id === session.hangoutId) : null;

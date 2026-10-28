@@ -165,3 +165,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** None.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 22:49 (Asia/Riyadh)
+
+**Update:** Moved groups and hangouts out of the AI Analyst into their own **Hangouts** page (`/hangouts`, linked from Home, More and the Analyst); the Analyst keeps Insights and Daily plan. Users now only see the assistant as "Barq": screen text, tips and error messages no longer name Claude or the engines. Every AI request now carries `language: "English"` in its JSON payload and the reply's JSON schema as structured output (the Ring API enforces it with `response_format: json_schema`; Claude-Dev is sent `output_config`); replies with Chinese, Japanese, Korean, Cyrillic or Thai text are rejected and retried. Fixed the hangout game error ("already has a score"): the play screen gave every phone the same first player's turn, so when volunteers opened it on their own phones the second submission failed and replaced the game with an error. Now each phone offers only its own player's turn (the host can still hand one phone around), players can only submit their own score, the board refreshes every 3 seconds while others play, and a turn that was already played refreshes the board instead of erroring. "Back to Hangouts" returns to the new page. Added the Barq OK-sign character (cut from the supplied mockup) to every payment confirmation: Pay at places, Market order, transfer, and hangout bill. Replaced the piggy pose with thumbs and deleted `piggy.png`.
+
+**Validation:** TypeScript build passed. 26 backend tests passed (new: English rejection and retry, own-turn rule; the stand-in AI server now rejects requests without a schema or the English field). 25 Playwright tests passed twice, including the new Hangouts page, the per-phone game flow and the payment character. Live checks with the real keys: a tip and a full daily plan returned valid English JSON from Claude-Dev (3.0 s and 6.4 s) and from the Ring API with Claude-Dev forced to time out (5.0 s and 26.4 s). Checked the public site and a local build in the browser with no console errors.
+
+**Open items:** None.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

@@ -77,7 +77,9 @@ export function insights(user, now = new Date()) {
 // The server supplies the facts and the candidate places; Claude chooses and explains. Every place id and price
 // in the answer is checked against the Places database, so the model can't invent places or change prices.
 
-export const POSES = ['hero', 'thumbs', 'think', 'idea', 'celebrate', 'coin', 'laptop', 'receipt', 'places', 'piggy', 'growth'];
+export const POSES = ['hero', 'thumbs', 'think', 'idea', 'celebrate', 'coin', 'laptop', 'receipt', 'places', 'growth'];
+const POSE = { type: 'string', enum: POSES };
+const nullableString = { anyOf: [{ type: 'string' }, { type: 'null' }] };
 const poseOf = value => POSES.includes(value) ? value : 'idea';
 const cleanText = (value, field, max = 400) => {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`missing ${field}`);
@@ -88,8 +90,8 @@ export async function advice(user, ask, now = new Date()) {
   const facts = insights(user, now);
   const { value, provider, fallbackReason } = await ask({
     task: 'advice',
-    instructions: 'Read this user\'s spending facts and write a short headline (max 12 words) and 2 to 4 practical, specific tips (one sentence each) that use the real numbers. Mention upcoming subscriptions due within 7 days. Pick the character pose that fits: receipt for warnings, thumbs or celebrate for good news, piggy for saving, growth for progress.',
-    schema: { type: 'object', properties: { headline: { type: 'string' }, tips: { type: 'array', items: { type: 'string' } }, pose: { enum: POSES } }, required: ['headline', 'tips', 'pose'] },
+    instructions: 'Read this user\'s spending facts and write a short headline (max 12 words) and 2 to 4 practical, specific tips (one sentence each) that use the real numbers. Mention upcoming subscriptions due within 7 days. Pick the character pose that fits: receipt for warnings, thumbs or celebrate for good news or saving, growth for progress.',
+    schema: { type: 'object', properties: { headline: { type: 'string' }, tips: { type: 'array', items: { type: 'string' } }, pose: POSE }, required: ['headline', 'tips', 'pose'], additionalProperties: false },
     data: { name: user.name, today: dayKey(now), ...facts },
     validate: value => {
       const tips = Array.isArray(value.tips) ? value.tips.filter(t => typeof t === 'string' && t.trim()).map(t => t.trim().slice(0, 300)).slice(0, 4) : [];
@@ -119,7 +121,8 @@ function candidates(categoryIds, limit, perCategory = 12) {
   return options;
 }
 
-const PLAN_ITEM = { type: 'object', properties: { time: { type: 'string', description: 'HH:MM, 24-hour' }, label: { type: 'string' }, category: { enum: ['cafe', 'food', 'entertainment', 'transportation'] }, placeId: { type: ['string', 'null'] }, note: { type: ['string', 'null'] } }, required: ['time', 'label', 'category', 'placeId'] };
+const PLAN_ITEM = { type: 'object', properties: { time: { type: 'string', description: 'HH:MM, 24-hour' }, label: { type: 'string' }, category: { type: 'string', enum: ['cafe', 'food', 'entertainment', 'transportation'] }, placeId: nullableString, note: nullableString }, required: ['time', 'label', 'category', 'placeId', 'note'], additionalProperties: false };
+const PLAN = { type: 'object', properties: { message: { type: 'string' }, pose: POSE, items: { type: 'array', items: PLAN_ITEM } }, required: ['message', 'pose', 'items'], additionalProperties: false };
 const RIDE_COST = 25;
 
 /** Checks Claude's items against the candidates, prices them from the database and keeps the total within budget. */
@@ -156,8 +159,8 @@ export async function dailyPlan(user, budget, ask, now = new Date()) {
   const options = candidates(['cafe', 'food', 'entertainment'], budget);
   const { value: plan, provider, fallbackReason } = await ask({
     task: 'daily-plan',
-    instructions: `Plan today for this user within a budget of SAR ${budget} per the DATA. Choose places only from "options" by placeId. Each place costs its "cost" and the total must not exceed the budget. A ride for the day (category "transportation", placeId null) costs SAR ${RIDE_COST}; include it only if the budget is at least SAR 60. Lean towards the categories the user spends most on ("habits"), keep some money unspent when the budget is generous, and use realistic times. If nothing fits, return an empty items list and suggest a no-spend day. Write a warm 1-2 sentence message that mentions the budget, and pick a pose (idea for a plan, piggy for a no-spend day).`,
-    schema: { type: 'object', properties: { message: { type: 'string' }, pose: { enum: POSES }, items: { type: 'array', items: PLAN_ITEM } }, required: ['message', 'pose', 'items'] },
+    instructions: `Plan today for this user within a budget of SAR ${budget} per the DATA. Choose places only from "options" by placeId. Each place costs its "cost" and the total must not exceed the budget. A ride for the day (category "transportation", placeId null) costs SAR ${RIDE_COST}; include it only if the budget is at least SAR 60. Lean towards the categories the user spends most on ("habits"), keep some money unspent when the budget is generous, and use realistic times. If nothing fits, return an empty items list and suggest a no-spend day. Write a warm 1-2 sentence message that mentions the budget, and pick a pose (idea for a plan, thumbs for a no-spend day).`,
+    schema: PLAN,
     data: { name: user.name, today: dayKey(now), budget, usualDailySpend: facts.summary.avgDaily, habits: habits(user, now), options },
     validate: value => ({ message: cleanText(value.message, 'message'), pose: poseOf(value.pose), ...checkItems(value.items, options, budget, { allowRide: budget >= 60 }) }),
   });
@@ -176,7 +179,7 @@ export async function hangoutPlan(user, group, members, budget, ask, now = new D
   const { value: plan, provider, fallbackReason } = await ask({
     task: 'hangout-plan',
     instructions: `Plan an evening outing for the group "${group.name}" (${members.length} people). Every person can spend at most SAR ${perPerson}. Choose places only from "options" by placeId; each "cost" is per person and the per-person total must not exceed SAR ${perPerson}. Prefer an activity, then dinner, then coffee, between 17:00 and 23:30, but fit the budget first. If nothing fits, return an empty items list and suggest a home hangout. Write a friendly 1-2 sentence message for the group that mentions the per-person budget but never suggests anyone has less money. Pick a pose (places for a plan, think if nothing fits).`,
-    schema: { type: 'object', properties: { message: { type: 'string' }, pose: { enum: POSES }, items: { type: 'array', items: PLAN_ITEM } }, required: ['message', 'pose', 'items'] },
+    schema: PLAN,
     data: { group: group.name, people: members.length, perPersonBudget: perPerson, today: dayKey(now), options },
     validate: value => ({ message: cleanText(value.message, 'message'), pose: poseOf(value.pose), ...checkItems(value.items, options, perPerson, { allowRide: false }) }),
   });

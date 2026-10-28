@@ -7,7 +7,7 @@ export interface CategoryTemplate { id: CategoryId; name: string; nameAr: string
 export interface PlaceRecord { record_id: string; name: string; categoryId: CategoryId; general_category: string; address: string; rating5: number | null; price_category_ar: string | null; estimatedCost: number; }
 export interface PublicPlace { id: string; name: string; categoryId: CategoryId; address: string; district: string | null; rating: number | null; priceLabel: string | null; estimatedCost: number; }
 export interface Group { id: string; name: string; members: (DirectoryEntry & { ready: boolean })[]; }
-export type Pose = 'hero' | 'thumbs' | 'think' | 'idea' | 'celebrate' | 'coin' | 'laptop' | 'receipt' | 'places' | 'piggy' | 'growth';
+export type Pose = 'hero' | 'thumbs' | 'think' | 'idea' | 'celebrate' | 'coin' | 'laptop' | 'receipt' | 'places' | 'growth' | 'ok';
 export interface CategoryTotal { id: CategoryId; name: string; amount: number; count: number; }
 export interface Insights {
   generatedAt: string;
@@ -17,7 +17,7 @@ export interface Insights {
   alerts: { type: 'overspend' | 'daily-limit'; category: CategoryId | null; amount: number; usual: number; message: string }[];
   subscriptions: { seller: string; category: CategoryId; amount: number; nextDue: string; daysLeft: number }[];
 }
-/** Written by Claude from the insights. */
+/** Written by the AI (shown to users as Barq) from the insights. */
 export type AiSource = { source: 'claude' | 'ring'; fallbackReason: string | null };
 export interface Advice extends AiSource { headline: string; tips: string[]; pose: Pose; }
 /** A record in the Payments database. */
