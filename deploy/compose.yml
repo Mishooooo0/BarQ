@@ -1,4 +1,6 @@
 # Ring server deployment: ~/barq/compose.yml with the source in ~/barq/app (see deploy/deploy.sh).
+# Runs 24/7: Docker starts at boot and `restart: always` brings BarQ back after a crash or reboot.
+# The databases live in ~/barq/data on the host, so they survive rebuilds, redeploys and `docker compose down`.
 # Bound to localhost like the other apps on the server; publish it through the Cloudflare tunnel to make it public.
 # Put CLAUDE_DEV_KEY=... in ~/barq/.env (mode 600) to connect the AI Analyst.
 services:
@@ -6,13 +8,10 @@ services:
     build: ./app
     image: barq:latest
     container_name: barq
-    restart: unless-stopped
+    restart: always
     ports:
       - "127.0.0.1:5352:5352"
     environment:
       CLAUDE_DEV_KEY: ${CLAUDE_DEV_KEY:-}
     volumes:
-      - barq-data:/app/data/db
-
-volumes:
-  barq-data:
+      - ./data:/app/data/db

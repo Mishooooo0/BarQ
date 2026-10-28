@@ -4,7 +4,8 @@
 set -euo pipefail
 HOST="${1:-ring}"
 git diff --quiet HEAD || echo "Note: uncommitted changes are not deployed; only HEAD is."
-ssh "$HOST" 'mkdir -p ~/barq && rm -rf ~/barq/app.new && mkdir ~/barq/app.new && touch ~/barq/.env && chmod 600 ~/barq/.env'
+# ~/barq/data holds the databases; the container runs as uid 1000 ("node"), so that user must own it.
+ssh "$HOST" 'mkdir -p ~/barq/data && sudo chown 1000:1000 ~/barq/data && rm -rf ~/barq/app.new && mkdir ~/barq/app.new && touch ~/barq/.env && chmod 600 ~/barq/.env'
 git archive --format=tar HEAD | ssh "$HOST" 'tar -x -C ~/barq/app.new'
 scp -q deploy/compose.yml "$HOST":~/barq/compose.yml
 ssh "$HOST" 'cd ~/barq && rm -rf app && mv app.new app && docker compose up -d --build && docker compose ps'

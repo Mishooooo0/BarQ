@@ -1,0 +1,15 @@
+# Local 24/7 container: `docker compose up -d --build` from the repo root. Serves http://127.0.0.1:5352.
+# `restart: always` restarts it after crashes and whenever Docker Desktop starts. The databases stay in
+# data/db on this PC (shared with `npm run dev`), and CLAUDE_DEV_KEY is passed through from your environment.
+services:
+  barq:
+    build: .
+    image: barq:latest
+    container_name: barq-local
+    restart: always
+    ports:
+      - "127.0.0.1:5352:5352"
+    environment:
+      CLAUDE_DEV_KEY: ${CLAUDE_DEV_KEY:-}
+    volumes:
+      - ./data/db:/app/data/db
