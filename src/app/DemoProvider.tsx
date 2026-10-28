@@ -7,8 +7,15 @@ type Action = { type: 'money'; amount: number; title: string; kind: Transaction[
 const initial: State = { balance: account.balance, transactions: initialTransactions, frozen: [], favorites: [], cart: [], spins: 1, cashback: account.cashback, joined: false, hidden: false, completedQuests: [] };
 const toggle = <T,>(list: T[], id: T) => list.includes(id) ? list.filter(x => x !== id) : [...list, id];
 const cents = (value: number) => Math.round(value * 100) / 100;
+let fallbackId = 0;
+function demoId() {
+  if (globalThis.crypto?.getRandomValues) {
+    return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+  return `demo-${Date.now()}-${++fallbackId}`;
+}
 function transaction(state: State, amount: number, title: string, kind: Transaction['kind']): State {
-  return { ...state, balance: cents(state.balance + amount), transactions: [{ id: crypto.randomUUID(), title, amount, kind, subtitle: 'Simulated · No real money moved', date: 'Today' }, ...state.transactions] };
+  return { ...state, balance: cents(state.balance + amount), transactions: [{ id: demoId(), title, amount, kind, subtitle: 'Simulated · No real money moved', date: 'Today' }, ...state.transactions] };
 }
 function reducer(state: State, action: Action): State {
   switch (action.type) {

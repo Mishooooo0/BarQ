@@ -75,3 +75,13 @@ Tool: Codex — Developer: Codex
 **Open items:** Browser state remains in-memory demo state. The server is running on this machine and is not a managed deployment.
 
 Tool: Codex — Developer: Codex
+
+## 2026-10-28 19:05 (Asia/Riyadh)
+
+**Update:** Fixed the white-screen crash in demo top-up and store checkout on the LAN HTTP address. The UI used `crypto.randomUUID()`, which is unavailable in that browser context; demo transaction IDs now use `crypto.getRandomValues()` with a safe demo fallback. Added a browser regression test for that environment. Confirmed the bootcamp scope: no real banking or payment integration.
+
+**Validation:** Rebuilt the UI, reproduced and completed a SAR 100 fictional top-up in the in-app browser without a new error, and passed all 14 Playwright tests. The places screen remains connected to the 208-record API.
+
+**Open items:** Only the places dataset is connected to the server API. Wallet, top-up, checkout, rewards, and games still use fictional client-side state; there is no user or game database in the supplied `Almalki` branch.
+
+Tool: Codex — Developer: Codex
