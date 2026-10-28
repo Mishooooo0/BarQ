@@ -120,6 +120,8 @@ After the analyst plans a hangout on the **Hangouts** page, tap **Ask the group:
 | Nobody volunteers | Split or own, whichever has more votes |
 | Nobody volunteers and split ties with own | Everyone pays their own |
 
+When everyone who owed has paid, the hangout ends and moves from the **Active** tab to the **History** tab, with its end date.
+
 The bill is the plan's per-person cost times the group size, priced from the Places database. Whoever owes taps **Pay**: the payer pays the whole bill, or each member pays their share. Each payment is charged to the wallet and saved in the Payments database. The rules are in [`server/hangouts.mjs`](server/hangouts.mjs).
 
 ## Market → Pay at places
@@ -163,4 +165,4 @@ tests/           Playwright browser checks
 
 ## Notes
 
-React + TypeScript, Vite, Tailwind CSS, Lucide React, Motion and React Router on the frontend. The backend uses only Node's standard library. Cards, Market products and rewards progress remain local UI state. See [visual comparison checklist](docs/VISUAL-COMPARISON.md) and [asset provenance](docs/ASSETS.md) for the reference artwork. Do not enter real personal or financial information.
+React + TypeScript, Vite, Tailwind CSS, Lucide React, Motion and React Router on the frontend. The backend uses only Node's standard library. Cards, Market products and rewards progress remain local UI state. The full project report is in [docs/PROJECT-REPORT.md](docs/PROJECT-REPORT.md). See [visual comparison checklist](docs/VISUAL-COMPARISON.md) and [asset provenance](docs/ASSETS.md) for the reference artwork. Do not enter real personal or financial information.

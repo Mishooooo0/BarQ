@@ -5,3 +5,4 @@ playwright-report/
 *.tsbuildinfo
 .env*
 data/db/
+data/backups/

@@ -185,3 +185,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** None.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 23:05 (Asia/Riyadh)
+
+**Update:** Merged the `origin/Meshal` commit from Codex (19:05, LAN HTTP `randomUUID` fix) into the local branch; its code targeted the removed `DemoProvider.tsx`, and the current client no longer uses `randomUUID`, so its regression test was ported to the current top-up flow. Added Hangouts history: when everyone who owed has paid, a hangout ends (`endedAt`) and moves from the Active tab to a History tab next to it on the Hangouts page; the payment confirmation stays visible while the card moves. At the repository owner's request, reset all account progress on both machines (balances, transactions, budgets, payments, hangouts and game sessions back to zero) after taking backups (`~/barq/backups/data-20261028-200428.tgz` on the Ring server, `data/backups/` on this PC, git-ignored). Wrote the project report, `docs/PROJECT-REPORT.md`.
+
+**Validation:** 26 backend tests and 26 Playwright tests passed (browser suite twice). After the reset, both servers report 5 users with zero balance and no transactions, payments or hangouts, and only the BarQ Developers group. The new version is running in both containers.
+
+**Open items:** The other team branches (`Almalki`, `Rasel`, `Sultana`, `Testing`) have not been merged or synced with this log.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)
