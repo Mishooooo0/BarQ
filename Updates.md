@@ -35,3 +35,13 @@ Tool: <tool name> — Developer: <developer name>
 **Open items:** Confirm product requirements, technical implementation details, task owners, and milestone dates.
 
 Tool: ChatGPT — Developer: Unassigned (documentation initialization requested by repository owner)
+
+## 2026-10-28 18:38 (Asia/Riyadh)
+
+**Update:** Created a local `integration/barq` branch from `main` and merged the locally available `Alsehli` and `Almalki` refs. Retrieved the latest three JSONL place files from the remote `Almalki` branch; their Git blob hashes match the remote files. Added a read-only Node API for health, category counts, place search/filter/pagination, and place lookup. Connected a Riyadh Places screen in the available UI branch to that API. The original checkout and remote `main` were not changed.
+
+**Validation:** Three Node API tests passed. The API loaded 208 records in seven categories. Frontend build was attempted but could not run because dependencies are absent; offline `npm ci` failed due to a missing cached package.
+
+**Open items:** The local branch refs are behind the remote branches, so this is not yet a merge of the latest UI and database commits. Install frontend dependencies, run the UI build and end-to-end checks, refresh both branches, implement the remaining user/game/payment backend contracts, and review before merging to remote `main`.
+
+Tool: Codex — Developer: Codex

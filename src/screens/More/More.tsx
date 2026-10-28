@@ -1,0 +1,22 @@
+import { Headset } from 'lucide-react';
+import { Link } from 'react-router';
+import { IconButton, PageHeader } from '../../components/ui/Primitives';
+import { Artwork } from '../../components/ui/Artwork';
+import { AccountTile, ServiceTile, services } from '../../components/cards/ServiceTile';
+import { useSheet } from '../../hooks/useSheet';
+
+function PlayingCards() { return <svg viewBox="0 0 32 36" fill="none" aria-hidden="true"><rect x="8" y="5" width="21" height="28" rx="3" stroke="currentColor" strokeWidth="1.8" /><rect x="4" y="2" width="21" height="30" rx="3" fill="#f7f7f7" stroke="currentColor" strokeWidth="1.8" /><path d="M14.5 14c-4-5-9 1 0 8 9-7 4-13 0-8" fill="currentColor" /><path d="M8 7c-2-2-4 1 0 4 4-3 2-6 0-4M20 26c-2-2-4 1 0 4 4-3 2-6 0-4" fill="currentColor" /></svg>; }
+export function More() {
+  const { open } = useSheet();
+  return <>
+    <PageHeader title="Products"><IconButton label="Customer support" onClick={() => open('support')}><Headset /></IconButton></PageHeader>
+    <div className="products-content">
+      <section><h2 className="section-title">Explore</h2><Link className="service-tile" to="/places">Riyadh places</Link></section>
+      <section><h2 className="section-title">Transfers</h2><div className="services-grid">{services.map(service => <ServiceTile key={service.id} service={service} />)}</div></section>
+      <section><h2 className="section-title">Games</h2><div className="services-grid"><button className="service-tile game-tile" onClick={() => open('baloot')}><span className="service-icon neutral"><PlayingCards /></span><span>Baloot</span><span className="beta">Beta</span></button></div></section>
+      <section><h2 className="section-title">Accounts</h2><div className="services-grid"><AccountTile /></div></section>
+      <section><h2 className="section-title">Payments</h2><div className="services-grid"><button className="service-tile" onClick={() => open('salary')}><Artwork source="productsLower" region={[89, 666, 61, 62]} className="service-reference-icon" /><span>Domestic<br />Labor Salaries</span></button></div></section>
+      <section><h2 className="section-title">Rewards &amp; Offers</h2><div className="services-grid"><button className="service-tile offers-tile" onClick={() => open('offers')}><Artwork source="productsLower" region={[89, 971, 61, 62]} className="service-reference-icon" /><span>Offers</span></button></div></section>
+    </div>
+  </>;
+}
