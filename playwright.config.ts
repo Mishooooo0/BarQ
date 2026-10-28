@@ -14,9 +14,8 @@ export default defineConfig({
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: 'npm run dev -- --port 5173',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: true,
-  },
+  webServer: [
+    { command: 'npm run api', url: 'http://127.0.0.1:3001/api/health', reuseExistingServer: true },
+    { command: 'npm run dev -- --port 5173', url: 'http://127.0.0.1:5173', reuseExistingServer: true },
+  ],
 });

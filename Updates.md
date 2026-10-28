@@ -45,3 +45,13 @@ Tool: ChatGPT — Developer: Unassigned (documentation initialization requested 
 **Open items:** The local branch refs are behind the remote branches, so this is not yet a merge of the latest UI and database commits. Install frontend dependencies, run the UI build and end-to-end checks, refresh both branches, implement the remaining user/game/payment backend contracts, and review before merging to remote `main`.
 
 Tool: Codex — Developer: Codex
+
+## 2026-10-28 18:47 (Asia/Riyadh)
+
+**Update:** Moved the integration onto `Meshal` and deleted the temporary `integration/barq` branch. Brought in the current `Alsehli` Points Challenges page and route alongside the places API and all three `Almalki` datasets. Added browser checks for the Places and Points Challenges flows. All new work remains on `Meshal`; `main` was not changed.
+
+**Validation:** `npm ci` completed with zero reported vulnerabilities. `npm run build` passed. Three Node API tests passed. All 13 Playwright browser tests passed, including the two integration checks.
+
+**Open items:** The app remains a fictional prototype. Wallet state is in-browser mock data, the places API is read-only, and no real banking authentication, payment processing, or persistent user/game data is implemented. Review these contracts before treating it as a production banking backend.
+
+Tool: Codex — Developer: Codex

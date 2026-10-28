@@ -332,3 +332,7 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); min-height: ca
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.games-phone .screen-scroll { overflow: hidden; background: #fbefe3; }
+.games-phone .status-bar { background: #fbefe3; }
+.games-frame { display: block; width: 100%; height: calc(var(--screen-height) - 54px); border: 0; }
