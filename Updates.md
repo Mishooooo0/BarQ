@@ -65,3 +65,13 @@ Tool: Codex — Developer: Codex
 **Open items:** The running preview depends on this machine remaining on and its IP remaining reachable. Banking and wallet features remain fictional demo behavior.
 
 Tool: Codex — Developer: Codex
+
+## 2026-10-28 18:56 (Asia/Riyadh)
+
+**Update:** Set the production UI asset base to `/` so direct links such as `/rewards/wheel` load their JavaScript and styles from the server root. Rebuilt the UI while the single-process server continued serving port 5352.
+
+**Validation:** Production build and five Node tests passed. A network request to `/rewards/wheel` returned 200, and the JavaScript asset referenced by that page also returned 200.
+
+**Open items:** Browser state remains in-memory demo state. The server is running on this machine and is not a managed deployment.
+
+Tool: Codex — Developer: Codex
