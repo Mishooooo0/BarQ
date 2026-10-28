@@ -209,4 +209,17 @@ test('when Claude-Dev is slow the Ring API plans the day and the screen says so'
   await page.getByRole('button', { name: 'Plan my day' }).click();
   await expect(page.locator('.plan-item').first()).toBeVisible();
   await expect(page.locator('.ai-source')).toContainText('Answered by Barq AI (backup engine, because the main one was slow or unavailable).');
+
+test('top-up works when randomUUID is unavailable (LAN HTTP address)', async ({ page }) => {
+  // Browsers only offer crypto.randomUUID on HTTPS or localhost; the app must not depend on it.
+  await page.addInitScript(() => Object.defineProperty(window.crypto, 'randomUUID', { value: undefined, configurable: true }));
+  await signIn(page);
+  await page.getByRole('button', { name: 'Add money', exact: true }).click();
+  await page.getByLabel('Amount (SAR)').fill('100');
+  await page.getByRole('button', { name: 'Review top-up' }).click();
+  await page.getByRole('button', { name: 'Confirm top-up' }).click();
+  await expect(page.getByRole('status')).toContainText('Money added');
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await expect(page.getByLabel('Available balance 100.00 Saudi riyals')).toBeVisible();
+});
 });

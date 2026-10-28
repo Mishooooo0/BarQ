@@ -76,6 +76,16 @@ Tool: Codex — Developer: Codex
 
 Tool: Codex — Developer: Codex
 
+## 2026-10-28 19:05 (Asia/Riyadh)
+
+**Update:** Fixed the white-screen crash in demo top-up and store checkout on the LAN HTTP address. The UI used `crypto.randomUUID()`, which is unavailable in that browser context; demo transaction IDs now use `crypto.getRandomValues()` with a safe demo fallback. Added a browser regression test for that environment. Confirmed the bootcamp scope: no real banking or payment integration.
+
+**Validation:** Rebuilt the UI, reproduced and completed a SAR 100 fictional top-up in the in-app browser without a new error, and passed all 14 Playwright tests. The places screen remains connected to the 208-record API.
+
+**Open items:** Only the places dataset is connected to the server API. Wallet, top-up, checkout, rewards, and games still use fictional client-side state; there is no user or game database in the supplied `Almalki` branch.
+
+Tool: Codex — Developer: Codex
+
 ## 2026-10-28 19:26 (Asia/Riyadh)
 
 **Update:** Merged `origin/Alsehli` (new UI, flying camel game) into `Meshal` after fast-forwarding to `origin/Meshal`; resolved conflicts by keeping the Places route and taking Alsehli's newer games page, mascot tile and styles. Built the backend from `Plan.md`: a Users database with the five accounts (Abdullah M, Abdullah S, Meshal, Sultana, Rasel), name + 4-digit PIN sign-in (scrypt hashes, signed tokens, lockout), balances and 60 days of categorised spending each, and friend groups; a Games database with Flappy Bird and who-pays-the-bill sessions (random order, highest points pays, bill charged to the payer); the Places and Categories database with the 7 templates. Added the AI Analyst (`server/analyst.mjs`, `src/screens/Analyst/`) using the supplied pixel character: insights, overspending and subscription alerts, a daily plan from a wallet-limited budget slider, and a group hangout plan built on the smallest budget without revealing anyone's numbers. Wired the UI to the API (sign-in, live balance and history, top-ups, transfers between users, checkout, salary, cashback). Removed all "Demo" naming from the app. To stop the UI breaking when the backend changes: the API now runs inside the Vite dev server with per-request module reload, all calls go through one client with timeouts and readable errors, screens show retry states, an error boundary wraps routes, and `npm start` rebuilds before serving. Live databases are in `data/db/` (git-ignored) and are created from `server/seed.mjs` on first run.
