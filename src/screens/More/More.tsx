@@ -1,4 +1,5 @@
 import { Headset } from 'lucide-react';
+import { Link } from 'react-router';
 import { IconButton, PageHeader } from '../../components/ui/Primitives';
 import { Artwork } from '../../components/ui/Artwork';
 import { AccountTile, ServiceTile, services } from '../../components/cards/ServiceTile';
@@ -10,6 +11,7 @@ export function More() {
   return <>
     <PageHeader title="Products"><IconButton label="Customer support" onClick={() => open('support')}><Headset /></IconButton></PageHeader>
     <div className="products-content">
+      <section><h2 className="section-title">Explore</h2><Link className="service-tile" to="/places">Riyadh places</Link></section>
       <section><h2 className="section-title">Transfers</h2><div className="services-grid">{services.map(service => <ServiceTile key={service.id} service={service} />)}</div></section>
       <section><h2 className="section-title">Games</h2><div className="services-grid"><button className="service-tile game-tile" onClick={() => open('baloot')}><span className="service-icon neutral"><PlayingCards /></span><span>Baloot</span><span className="beta">Beta</span></button></div></section>
       <section><h2 className="section-title">Accounts</h2><div className="services-grid"><AccountTile /></div></section>
