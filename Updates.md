@@ -55,3 +55,13 @@ Tool: Codex — Developer: Codex
 **Open items:** The app remains a fictional prototype. Wallet state is in-browser mock data, the places API is read-only, and no real banking authentication, payment processing, or persistent user/game data is implemented. Review these contracts before treating it as a production banking backend.
 
 Tool: Codex — Developer: Codex
+
+## 2026-10-28 18:55 (Asia/Riyadh)
+
+**Update:** Replaced the two-process development setup for the shared preview with a single production server on port 5352. It serves the built UI and places API from one process, returns the app shell for direct UI routes such as `/rewards/wheel`, and keeps unknown API paths as 404 responses. Fixed the Windows static-root path check after the first restart blocked UI files. Added route regression tests.
+
+**Validation:** Production build passed. Five Node tests passed. Network requests to `/`, `/rewards/wheel`, and `/api/health` at `172.20.10.5:5352` returned 200; health reported 208 places.
+
+**Open items:** The running preview depends on this machine remaining on and its IP remaining reachable. Banking and wallet features remain fictional demo behavior.
+
+Tool: Codex — Developer: Codex

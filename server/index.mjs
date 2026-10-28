@@ -1,14 +1,19 @@
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const places = readFileSync(new URL('../data/riyadh_all_seven_categories_v2.jsonl', import.meta.url), 'utf8').trim().split(/\r?\n/).map(JSON.parse);
 const categories = [...new Set(places.map(p => p.general_category))].sort();
 const port = Number(process.env.PORT || 3001);
+const dist = path.resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
 const send = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)); };
 
 export function handler(req, res) {
-  if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
-  const url = new URL(req.url, 'http://localhost');
+  if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed' });
+  let url;
+  try { url = new URL(req.url, 'http://localhost'); } catch { return send(res, 400, { error: 'Invalid URL' }); }
   if (url.pathname === '/api/health') return send(res, 200, { status: 'ok', places: places.length });
   if (url.pathname === '/api/categories') return send(res, 200, categories.map(name => ({ name, count: places.filter(p => p.general_category === name).length })));
   if (url.pathname === '/api/places') {
@@ -21,10 +26,21 @@ export function handler(req, res) {
   }
   const match = url.pathname.match(/^\/api\/places\/([^/]+)$/);
   if (match) {
-    const place = places.find(p => p.record_id === decodeURIComponent(match[1]));
+    let id;
+    try { id = decodeURIComponent(match[1]); } catch { return send(res, 400, { error: 'Invalid place ID' }); }
+    const place = places.find(p => p.record_id === id);
     return place ? send(res, 200, place) : send(res, 404, { error: 'Place not found' });
   }
-  send(res, 404, { error: 'Not found' });
+  if (url.pathname.startsWith('/api/')) return send(res, 404, { error: 'Not found' });
+  let pathname;
+  try { pathname = decodeURIComponent(url.pathname); } catch { return send(res, 400, { error: 'Invalid path' }); }
+  const requested = path.resolve(dist, `.${pathname}`);
+  if (requested !== dist && !requested.startsWith(dist + path.sep)) return send(res, 403, { error: 'Forbidden' });
+  const file = existsSync(requested) && statSync(requested).isFile() ? requested : (path.extname(pathname) ? null : path.join(dist, 'index.html'));
+  if (!file || !existsSync(file)) return send(res, 404, { error: 'Not found' });
+  const body = readFileSync(file);
+  res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream', 'content-length': body.length });
+  res.end(req.method === 'HEAD' ? undefined : body);
 }
 
 if (process.argv[1]?.replaceAll('\\', '/').endsWith('/server/index.mjs')) {

@@ -5,7 +5,8 @@ import { handler } from './index.mjs';
 function get(url) {
   let status;
   let body;
-  handler({ method: 'GET', url }, { writeHead(value) { status = value; }, end(value) { body = JSON.parse(value); } });
+  let contentType;
+  handler({ method: 'GET', url }, { writeHead(value, headers) { status = value; contentType = headers['content-type']; }, end(value) { body = contentType.startsWith('application/json') ? JSON.parse(value) : value?.toString(); } });
   return { status, body };
 }
 
@@ -25,3 +26,11 @@ test('places can be filtered and paginated', () => {
 });
 
 test('missing place returns 404', () => assert.equal(get('/api/places/unknown').status, 404));
+
+test('direct UI routes return the app shell', () => {
+  const { status, body } = get('/rewards/wheel');
+  assert.equal(status, 200);
+  assert.match(body, /<div id="root"><\/div>/);
+});
+
+test('unknown API routes stay 404', () => assert.equal(get('/api/missing').status, 404));
