@@ -125,3 +125,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** None.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 20:43 (Asia/Riyadh)
+
+**Update:** Made BarQ run 24/7 in containers on both machines. Ring: the `barq` container now uses `restart: always` and stores its databases in `~/barq/data` on the host (bind mount) instead of a Docker volume, so redeploys, rebuilds and `docker compose down` keep the data; the existing data was copied over first. `deploy/deploy.sh` prepares that folder. This PC: added a root `compose.yml`; BarQ now runs as the `barq-local` container on 127.0.0.1:5352 (replacing the background Node process), with the databases in `data/db` and `CLAUDE_DEV_KEY` passed from the local environment.
+
+**Validation:** Ring: restart policy `always`, bind mount confirmed; a session token issued before the redeploy still worked after it; after killing the BarQ process to simulate a crash, Docker restarted it automatically (restart count 1) and the token still worked. Docker is enabled at boot on ring. Local: the container is running with policy `always`, reports healthy with the AI connected, and reads the same `data/db/users.json`.
+
+**Open items:** On this PC, Docker Desktop's "start when you sign in" is off, so the local container will not start after a Windows restart until Docker Desktop is opened. The old `barq_barq-data` volume on ring is no longer used and was left in place. The ring copy still needs a Cloudflare tunnel route to be public and `CLAUDE_DEV_KEY` in `~/barq/.env` for the AI.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

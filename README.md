@@ -17,6 +17,7 @@ Open http://127.0.0.1:5173/. `npm run dev` runs the UI **and** the API in one pr
 | --- | --- |
 | `npm run dev` | UI + API with hot reload (port 5173) |
 | `npm start` | Builds, then serves the built UI + API from one Node process on port 5352 (`PORT`, `HOST` override) |
+| `docker compose up -d --build` | Runs BarQ 24/7 in the `barq-local` container on port 5352 (restarts automatically, data stays in `data/db`) |
 | `npm run api` | API only on port 3001 |
 | `npm run db:reset` | Recreates the Users, Games and Payments databases from the seed |
 | `npm test` | Backend tests (Node test runner, temporary database) |
@@ -36,6 +37,13 @@ The analyst calls Claude through the **Claude-Dev** endpoint (the same one The R
 Set the key once in your Windows user environment, then open a new terminal so the server inherits it. `GET /api/health` shows `ai.configured` (never the key). Without a key the facts still load, and the plans and tips explain how to connect.
 
 That endpoint ignores the API's structured-output option and replaces client tools with its own, so the server asks for JSON in the prompt and validates every answer. Place ids must exist in the Places database, prices come from the database rather than from Claude, totals are kept within the budget, and an unusable answer is retried once. Calls are queued one at a time because the account allows one request at a time.
+
+## Running 24/7
+
+BarQ runs in Docker with `restart: always`, so it comes back after a crash or restart without anyone starting it.
+
+- **This PC:** `docker compose up -d --build` from the repo root starts the `barq-local` container on http://127.0.0.1:5352. The databases stay in `data/db`. It runs whenever Docker Desktop is running; turn on *Settings → General → Start Docker Desktop when you sign in* so it also starts after Windows restarts.
+- **Ring server:** `bash deploy/deploy.sh` deploys the committed HEAD to `~/barq` as the `barq` container (127.0.0.1:5352). Docker starts at boot, and the databases live in `~/barq/data` on the host, so redeploys and rebuilds never touch them. To back them up: `ssh ring 'sudo tar -czf - -C ~/barq data' > barq-data.tgz`.
 
 ## Accounts
 
