@@ -105,3 +105,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** Deployment to the ring server follows in the next entry.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 20:43 (Asia/Riyadh)
+
+**Update:** Deployed BarQ to the ring server (`ssh ring`) as a Docker container named `barq`, following the existing pattern there: source in `~/barq/app`, `~/barq/compose.yml`, bound to `127.0.0.1:5352`, `restart: unless-stopped`, and the databases on the `barq_barq-data` volume. Added `Dockerfile`, `.dockerignore`, `deploy/compose.yml` and `deploy/deploy.sh` (deploys the committed HEAD). No other container or service on the server was changed.
+
+**Validation:** The container reports healthy. On the server, `/`, `/analyst` and `/api/health` returned 200, the five accounts are listed, and sign-in works. Checked in a browser through an SSH tunnel: Meshal signs in with a SAR 0.00 balance.
+
+**Open items:** Not public yet: it needs a public hostname route added to the server's Cloudflare tunnel (managed in the Cloudflare dashboard). The AI Analyst is not connected on the server until `CLAUDE_DEV_KEY` is put in `~/barq/.env` and the container is restarted. Nothing has been pushed to GitHub.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)
