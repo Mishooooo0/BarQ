@@ -2,6 +2,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>تحديات النقاط</title>
+<script>
+// Embedded in the light-only barq demo: pin the light theme before first paint so there's no dark flash.
+if(new URLSearchParams(location.search).has('embed')) document.documentElement.dataset.theme = 'light';
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: a native-feeling barq screen. Warm top fade, heavy page title, white 16px cards, glass pill tab bar. */
@@ -112,6 +116,8 @@ h1{flex:1; font-size:1.85rem; font-weight:700; margin:0; line-height:1.15; lette
 }
 .tab svg{width:23px; height:23px}
 .embed .tabs{display:none}
+.embed{scrollbar-width:none}
+.embed::-webkit-scrollbar{display:none}
 .tab[aria-selected="true"]{background:var(--nav-on)}
 
 /* Game screens: no outer card; the board and stats are the cards */
