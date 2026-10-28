@@ -8,6 +8,10 @@ const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit',
 
 export const categoryNames: Record<CategoryId, string> = { food: 'Food', cafe: 'Cafe', health: 'Health', shopping: 'Shopping', groceries: 'Groceries', transportation: 'Transportation', entertainment: 'Entertainment' };
 export const riyadhDay = (value: string | number | Date) => dayFormat.format(new Date(value));
+const dayMonth = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' });
+const dayMonthYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
+/** "29 Oct" from a YYYY-MM-DD date key, with the year when it isn't this year. */
+export const shortDay = (key: string) => (key.slice(0, 4) === riyadhDay(Date.now()).slice(0, 4) ? dayMonth : dayMonthYear).format(new Date(`${key}T00:00:00Z`));
 
 export function relativeDay(value: string) {
   const day = riyadhDay(value); const today = riyadhDay(Date.now()); const yesterday = riyadhDay(Date.now() - 86_400_000);

@@ -49,7 +49,7 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .bottom-nav.on-home .nav-item.active { background: transparent; }
 .home-phone.is-scrolled .bottom-nav { background: #ffffffb3; }
 .home-phone.is-scrolled .bottom-nav .nav-item.active { background: #eaeaecd9; }
-.more-phone .page-header { position: sticky; top: 0; z-index: 12; background: #f7f7f9b0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+.more-phone .page-header { position: sticky; top: 0; z-index: 12; background: #f7f7f9eb; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
 .service-reference-icon { width: 41px; height: 41px; border-radius: 50%; flex-shrink: 0; }
 .offers-tile { padding-top: 30px; }
 /* Cards: 342 × 324 surface, 81 × 55 thumbnails, 16px text offset. */
@@ -60,7 +60,6 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .card-art { width: 81px; height: 55px; border-radius: 4px; }
 .card-row h3 { font-size: 16px; font-weight: 850; line-height: 19px; letter-spacing: -.4px; }
 .card-row p { font-size: 13px; line-height: 18px; font-weight: 650; margin-top: 10px; letter-spacing: .3px; }
-.national-second { padding-left: 20px; }
 /* Products: intentionally keeps the fourth transfer on a new row. */
 .products-content { padding: 15px var(--page-inset) 18px; }
 .products-content .section-title { color: #999; margin-bottom: 17px; }
@@ -138,7 +137,7 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .balance-toggle > svg { width: 21px; height: 21px; }
 .balance-block p { font-size: 11.5px; font-weight: 600; margin-top: 7px; padding-right: 22px; }
 .home-actions { position: absolute; left: 27px; right: 27px; top: 289px; display: flex; justify-content: space-between; }
-.home-actions > a, .home-actions > button { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; line-height: 16px; font-weight: 750; background: transparent; width: 115px; }
+.home-actions > a, .home-actions > button { border-radius: 16px; padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; line-height: 16px; font-weight: 750; background: transparent; width: 115px; }
 .action-circle { width: 54px; height: 54px; border-radius: 50%; border: 1px solid #d7d7d7bb; background: #ffffff13; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 0 12px #fff2; display: grid; place-items: center; }
 .action-circle > svg { width: 28px; height: 28px; stroke-width: 2.4; }
 .home-actions > button:first-child .action-circle svg, .home-actions > a .action-circle svg { padding: 5px; background: white; color: #222; border-radius: 50%; }
@@ -169,6 +168,7 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .empty-state { border-radius: 18px; padding: 40px 18px; background: #fff; text-align: center; }
 .empty-state h2 { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
 .empty-state p { color: var(--muted); font-size: 13px; line-height: 20px; }
+.empty-state .primary-button { color: var(--color-ink); }
 .primary-button, .secondary-button { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 48px; padding: 12px 18px; border-radius: 14px; background: var(--yellow); font-size: 13px; font-weight: 750; width: 100%; margin-top: 18px; }
 .secondary-button { background: #eeedf0; }
 .text-button { width: 100%; padding: 16px; background: transparent; font-size: 13px; }
@@ -195,9 +195,10 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .transaction-icon { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 12px; background: #f3f0e9; flex-shrink: 0; }
 .transaction-icon svg { width: 18px; height: 18px; }
 .transaction-copy { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.transaction-copy strong { font-size: 11px; line-height: 14px; font-weight: 650; }
-.transaction-copy small { font-size: 10px; color: #999; }
-.transaction-row > span:last-child { font-size: 11px; display: flex; }
+.transaction-copy { min-width: 0; }
+.transaction-copy strong { font-size: 13px; line-height: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.transaction-copy small { font-size: 11px; color: #8d8f98; }
+.transaction-row > span:last-child { font-size: 13px; font-weight: 700; display: flex; flex-shrink: 0; }
 .positive { background: #e9f5ed; }
 .positive-text { color: #318066; }
 .transaction-receipt { padding: 8px 10px 16px 45px; font-size: 11px; color: var(--muted); line-height: 18px; }
@@ -280,7 +281,7 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .notification-item p { font-size: 12px; color: var(--muted); line-height: 19px; }
 .notification-item small { font-size: 10px; color: #999; display: block; margin-top: 8px; }
 .spending-bars > div { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 11px; margin-top: 20px; }
-.spending-bars > div > div { grid-column: 1; grid-row: 2; background: #eeedf0; border-radius: 5px; height: 7px; overflow: hidden; }
+.spending-bars > div > div { grid-column: 1 / -1; grid-row: 2; background: #eeedf0; border-radius: 5px; height: 7px; overflow: hidden; }
 .spending-bars i { display: block; height: 100%; border-radius: 5px; }
 .help-list h3 { font-size: 14px; font-weight: 750; margin: 20px 0 8px; }
 .help-list p { font-size: 12px; color: var(--muted); line-height: 20px; }
@@ -319,6 +320,11 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
   .category-card p { font-size: 9px; line-height: 11px; }
   .category-card h2 { font-size: 10.5px; }
   .service-tile { font-size: 10px; }
+  .detail-content { padding-left: 18px; padding-right: 18px; }
+  .occasion-lines li { grid-template-columns: 20px minmax(0, 1fr) 76px 28px; gap: 6px; padding-left: 10px; }
+  .add-line { grid-template-columns: minmax(0, 1fr) 64px auto; gap: 6px; }
+  .add-line .secondary-button { padding: 8px 10px; }
+  .payments-table th, .payments-table td { padding: 9px 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
@@ -407,15 +413,17 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .sub-item small { font-size: 10px; color: var(--muted); }
 .sub-item.soon small { color: #c8530b; font-weight: 750; }
 .sub-item .money { font-size: 12px; }
-.tip-list { padding-left: 18px; font-size: 12px; line-height: 19px; color: #333; }
-.tip-list li { margin-bottom: 6px; }
+.tip-list { list-style: none; padding: 0; margin: 0; font-size: 12px; line-height: 19px; color: #333; }
+.tip-list li { position: relative; padding-left: 16px; margin-bottom: 8px; }
+.tip-list li::before { content: ''; position: absolute; left: 3px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: #1f6fe5; }
 .places-content .product-row { margin-bottom: 10px; }
 
 /* Market → Pay at places */
-.pay-places-card { display: flex; align-items: center; gap: 12px; background: white; border-radius: var(--tile-radius); padding: 14px 16px; margin-bottom: 18px; }
+.pay-places-card { display: flex; align-items: center; gap: 12px; background: white; border-radius: var(--tile-radius); padding: 14px 16px; margin: 14px 0 18px; }
 .pay-places-card div { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .pay-places-card strong { font-size: 15px; font-weight: 800; }
 .pay-places-card span:not(.service-icon) { font-size: 11px; color: var(--muted); }
+.pay-intro { margin-bottom: 14px; }
 .pay-search { margin: 4px 0 14px; }
 .pay-list { display: flex; flex-direction: column; gap: 8px; }
 .pay-row { width: 100%; text-align: left; justify-content: space-between; }
@@ -434,6 +442,7 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .payments-table th, .payments-table td { padding: 9px 8px; text-align: left; border-bottom: 1px solid #f0f0f3; }
 .payments-table th { color: var(--muted); font-weight: 650; }
 .payments-table td:last-child, .payments-table th:last-child { text-align: right; white-space: nowrap; }
+.payments-table td:nth-child(3) { white-space: nowrap; color: var(--muted); }
 .add-member { display: flex; gap: 8px; margin: -4px 0 12px; }
 .add-member select { flex: 1; min-width: 0; border: 1px solid #dddddf; border-radius: 12px; padding: 10px; background: white; font-size: 13px; }
 .add-member .secondary-button { width: auto; margin: 0; min-height: 42px; padding: 8px 14px; }
@@ -479,9 +488,17 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 .payment-done .receipt-table { position: relative; z-index: 1; }
 .payment-done .receipt-table, .payment-done > .money { margin-top: 18px; }
 .payment-done .primary-button, .payment-done .secondary-button { margin-top: 14px; }
-.analyst-card + .analyst-card { margin-top: -14px; }
+.feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 30px; }
+.feature-tile { display: flex; flex-direction: column; gap: 4px; background: white; border-radius: var(--tile-radius); padding: 12px 12px 14px; min-height: 152px; }
+.feature-tile .analyst-sprite { width: 56px; height: 56px; object-fit: cover; border-radius: 14px; margin-bottom: 8px; background: #f3f5fa; }
+.feature-tile strong { font-size: 14px; font-weight: 800; letter-spacing: -.2px; }
+.feature-tile span { font-size: 11px; line-height: 15px; color: var(--muted); }
+.not-found { text-align: center; padding-top: 40px; }
+.not-found .analyst-sprite { width: 128px; height: 128px; margin: 0 auto 18px; border-radius: 22px; background: white; object-fit: contain; }
+.not-found h2 { font-size: 20px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 6px; }
 .hangouts-link { margin-top: 22px; }
 .hangout-tabs { margin: 8px 0 10px; }
+.hangout-tabs + .fine-print { margin: 0 0 12px; }
 .hangout-date { font-size: 10px; color: var(--muted); margin-top: 4px; }
 
 /* Occasions (Eid, graduation, parties, trips) and the Saving box */

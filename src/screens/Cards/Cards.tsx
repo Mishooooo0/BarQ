@@ -10,5 +10,5 @@ const regions: Record<CardId, [number, number, number, number]> = { national: [1
 export function CardArtwork({ id }: { id: CardId }) { return <Artwork source="cards" region={regions[id]} className="card-art" />; }
 export function Cards() {
   const { open } = useSheet();
-  return <><PageHeader title="Cards"><IconButton label="Add card" onClick={() => open('add-card')}><Plus /></IconButton></PageHeader><div className="cards-content"><h2 className="section-title">Your Cards</h2><div className="your-cards">{cards.map(card => <Link to={`/cards/${card.id}`} key={card.id} className="card-row"><CardArtwork id={card.id} /><div><h3>{card.id === 'national' ? <>National Day<br /><span className="national-second">96 Card</span></> : card.name}</h3><p>*{card.last4}</p></div></Link>)}</div></div></>;
+  return <><PageHeader title="Cards"><IconButton label="Add card" onClick={() => open('add-card')}><Plus /></IconButton></PageHeader><div className="cards-content"><h2 className="section-title">Your Cards</h2><div className="your-cards">{cards.map(card => <Link to={`/cards/${card.id}`} key={card.id} className="card-row"><CardArtwork id={card.id} /><div><h3>{card.name}</h3><p>*{card.last4}</p></div></Link>)}</div></div></>;
 }

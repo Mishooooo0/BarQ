@@ -3,7 +3,7 @@ import { ArrowLeft, MapPin, Search, Star } from 'lucide-react';
 import { PaymentDone } from '../../components/PaymentDone';
 import { useWallet } from '../../app/WalletProvider';
 import { api, errorMessage, isAbort } from '../../lib/api';
-import { riyadhDay } from '../../lib/format';
+import { riyadhDay, shortDay } from '../../lib/format';
 import { DetailHeader, ErrorState, MockNote, Money } from '../../components/ui/Primitives';
 import type { CategoryTemplate, Payment, PlaceRecord } from '../../types/api';
 
@@ -70,13 +70,13 @@ export function PayPlaces() {
   </div></>;
 
   return <><DetailHeader title="Pay at places" fallback="/market" /><div className="detail-content pay-content">
-    <p className="muted">Pay at any place in the Categories database. You can change the payment date.</p>
+    <p className="muted pay-intro">Pay at any place in the Categories database. You can change the payment date.</p>
     <div className="group-chips" role="radiogroup" aria-label="Category"><button role="radio" aria-checked={category === ''} onClick={() => setCategory('')}>All</button>{categories.map(c => <button key={c.id} role="radio" aria-checked={category === c.id} onClick={() => setCategory(c.id)}>{c.name}</button>)}</div>
     <label className="search-bar pay-search"><Search aria-hidden="true" /><input aria-label="Search places" placeholder="Search" value={query} onChange={e => setQuery(e.target.value)} /></label>
     {listError ? <ErrorState message={listError} onRetry={() => { setListError(''); setAttempt(n => n + 1); }} /> : places === null ? <p className="muted" role="status">Loading places…</p> : !places.length ? <p className="muted">No places match.</p>
       : <div className="pay-list">{places.map(p => <button key={p.record_id} className="product-row pay-row" onClick={() => choose(p)}><div><h3>{p.name}</h3><p><MapPin size={10} /> {categoryName(p.categoryId)}{p.rating5 != null && <> · <Star size={10} /> {p.rating5.toFixed(1)}</>}</p></div><Money amount={p.estimatedCost} /></button>)}</div>}
     <section className="analyst-section"><h3>Your payments</h3>{payments === null ? <p className="muted">Payments are unavailable right now.</p> : !payments.length ? <p className="muted">No payments yet.</p>
-      : <table className="payments-table"><thead><tr><th>Name</th><th>Category</th><th>Date</th><th>Price</th></tr></thead><tbody>{payments.map(p => <tr key={p.id}><td>{p.name}</td><td>{p.category}</td><td>{p.date}</td><td><Money amount={p.price} /></td></tr>)}</tbody></table>}</section>
+      : <table className="payments-table"><thead><tr><th>Name</th><th>Category</th><th>Date</th><th>Price</th></tr></thead><tbody>{payments.map(p => <tr key={p.id}><td>{p.name}</td><td>{p.category}</td><td><time dateTime={p.date}>{shortDay(p.date)}</time></td><td><Money amount={p.price} /></td></tr>)}</tbody></table>}</section>
     <MockNote />
   </div></>;
 }

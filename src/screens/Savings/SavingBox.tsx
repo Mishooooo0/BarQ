@@ -72,7 +72,7 @@ export function SavingBox() {
       </section>
 
       <section className="analyst-section"><h3>Move money</h3>
-        <label className="field-label">Amount (wallet: {sar(wallet.balance)})<input aria-label="Amount to move" inputMode="decimal" type="number" min="1" step="1" value={amountDraft} onChange={e => setAmountDraft(e.target.value)} placeholder="100" /></label>
+        <label className="field-label">Amount (wallet: {sar(wallet.balance)})<input aria-label="Amount to move" inputMode="decimal" type="number" min="1" step="1" value={amountDraft} onChange={e => setAmountDraft(e.target.value)} placeholder="Amount in SAR" /></label>
         <div className="button-pair">
           <button type="button" className="primary-button" onClick={() => void move('deposit')} disabled={busy || !validAmount}>Add to the box</button>
           <button type="button" className="secondary-button" onClick={() => void move('withdraw')} disabled={busy || !validAmount || box.saved <= 0}>Take out</button>
@@ -81,7 +81,7 @@ export function SavingBox() {
       </section>
 
       <section className="analyst-section"><h3>Goal for the end of {year}</h3>
-        <label className="field-label">Amount to have saved by {formatDay(box.deadline)}<input aria-label="Saving goal" inputMode="decimal" type="number" min="1" step="1" value={goalDraft} onChange={e => setGoalDraft(e.target.value)} placeholder="5000" /></label>
+        <label className="field-label">Amount to have saved by {formatDay(box.deadline)}<input aria-label="Saving goal" inputMode="decimal" type="number" min="1" step="1" value={goalDraft} onChange={e => setGoalDraft(e.target.value)} placeholder="For example 5000" /></label>
         <button type="button" className="primary-button" onClick={() => void saveGoal(goal)} disabled={busy || !validGoal || goal === box.target}>{box.target ? 'Update goal' : 'Set goal'}</button>
         {box.target != null && <button type="button" className="text-button" onClick={() => void saveGoal(null)} disabled={busy}>Remove goal</button>}
       </section>
