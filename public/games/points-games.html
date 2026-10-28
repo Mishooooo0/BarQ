@@ -171,7 +171,7 @@ button:focus-visible, [tabindex]:focus-visible, canvas:focus-visible{outline:3px
 
 /* Number ordering: yellow service-icon circles */
 .field{position:relative; width:100%; height:300px; touch-action:manipulation}
-.num{position:absolute; width:54px; height:54px; border-radius:50%; border:0; background:var(--accent); color:var(--accent-fg); font-weight:700; font-size:1.2rem; cursor:pointer; box-shadow:0 3px 10px rgba(28,28,38,.12); transition:transform .14s}
+.num{position:absolute; width:var(--num-size, 54px); height:var(--num-size, 54px); border-radius:50%; border:0; background:var(--accent); color:var(--accent-fg); font-weight:700; font-size:1.2rem; cursor:pointer; box-shadow:0 3px 10px rgba(28,28,38,.12); transition:transform .14s}
 .num:active{transform:scale(.94)}
 .num.done{opacity:.2; pointer-events:none; background:var(--line)}
 .num.miss{background:var(--bad); color:#fff}
@@ -909,15 +909,23 @@ function nmTick(){
 }
 function nmStart(){
   nmField.innerHTML = '';
-  const pos = [];
+  // One number per grid cell, so circles never overlap on any board height.
+  // Circles shrink (54px down to 34px) only when the board is too small for ten cells.
+  const W = nmField.clientWidth, H = nmField.clientHeight, GAP = 6;
+  let size = 54, cols, rows;
+  for(;; size -= 2){
+    cols = Math.floor(W / (size + GAP)); rows = Math.floor(H / (size + GAP));
+    if(cols * rows >= nm.total || size <= 34) break;
+  }
+  nmField.style.setProperty('--num-size', size + 'px');
+  const cw = W / cols, ch = H / rows;
+  const cells = Array.from({ length:cols * rows }, (_, i) => i);
+  for(let i = cells.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
   for(let v = 1; v <= nm.total; v++){
-    let x, y, tries = 0;
-    do{
-      x = Math.random() * (nmField.clientWidth - 56);
-      y = Math.random() * (nmField.clientHeight - 56);
-      tries++;
-    }while(tries < 200 && pos.some(p => Math.hypot(p.x - x, p.y - y) < 60));
-    pos.push({ x, y });
+    const c = cells[(v - 1) % cells.length];
+    // Random offset inside the cell keeps the layout from looking like a grid.
+    const x = (c % cols) * cw + Math.random() * Math.max(0, cw - size);
+    const y = Math.floor(c / cols) * ch + Math.random() * Math.max(0, ch - size);
     const b = document.createElement('button');
     b.className = 'num';
     b.textContent = v;
