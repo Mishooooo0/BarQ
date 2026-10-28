@@ -34,6 +34,7 @@ All accounts currently start from zero: no balances, no transactions, no budgets
 | 21:02 – 21:05 | Ring API attached as the AI fallback; AI keys added on the server | Claude Code |
 | 22:49 | Hangouts page; Barq naming; English structured output; game turn fix; payment character | Claude Code |
 | 23:03 | Hangouts history; account progress reset on both machines | Claude Code |
+| 29 Oct, 00:25 | Occasions (Eid al-Fitr, Eid al-Adha, graduation, home party, holiday trip) with Eidia lists; Saving box with an end-of-year goal; phone status bar removed | Claude Code |
 
 ## 3. Architecture
 
@@ -57,7 +58,7 @@ Node server (server/api.mjs) ──► AI: Claude-Dev  ──(slow/failing)─�
 
 | Database | Contents |
 | --- | --- |
-| **Users** | Abdullah M, Abdullah S, Meshal, Sultana, Rasel. Name, PIN hash (scrypt), balance, savings, cashback, hangout budget, transactions (seller, category, amount, date). Groups: **BarQ Developers** (all five). |
+| **Users** | Abdullah M, Abdullah S, Meshal, Sultana, Rasel. Name, PIN hash (scrypt), balance, Saving box amount and end-of-year goal, cashback, hangout budget, occasions (budget lines and Eidia list), transactions (seller, category, amount, date). Groups: **BarQ Developers** (all five). |
 | **Games** | Flappy Bird (the flying game in Points Challenges). Game sessions (players, rounds, scores, payer). Hangouts with their votes, result, who owes what, and when they ended. |
 | **Payments** | One record per payment (Pay at places and hangout bills): name, price, category, date, plus id, user, place and transaction ids. |
 | **Places & Categories** | 7 category templates (Food, Cafe, Health, Shopping, Groceries, Transportation, Entertainment) and 208 Riyadh places with ratings and price bands. |
@@ -89,6 +90,14 @@ Node server (server/api.mjs) ──► AI: Claude-Dev  ──(slow/failing)─�
 - Whoever owes taps Pay; payments are charged to the wallet and saved in Payments.
 - **History:** when everyone who owed has paid, the hangout ends and moves from the Active tab to the History tab, with its end date.
 
+### Occasions and Eidia
+- Budgets for Eid al-Fitr, Eid al-Adha, graduations, home parties and holiday trips. Each starts with suggested lines as shares of the budget (Eids start on their expected date, which can be changed). Lines can be edited and ticked off when bought.
+- The two Eids have an Eidia list: who you give to, how much, and whether it was given.
+- Shows budget, planned, left or over, and how much to put aside each week until the date. Barq can split the rest of the budget (after Eidia); its amounts are scaled to always fit.
+
+### Saving box
+- Move money from the wallet into the box and back. One goal: the amount to have saved by 31 December. Shows progress and how much to save per week and per day. Moves are "savings" transactions and never count as spending.
+
 ### Market → Pay at places
 - Buy from any of the 208 places, filter by category or search, change the payment date (today or up to a year back). The record is saved as name, price, category and date.
 
@@ -110,8 +119,8 @@ Crash recovery was tested on the Ring server: after the process was killed, Dock
 
 ## 7. Quality
 
-- **Backend tests (26):** databases, sign-in and lockout, forged tokens, empty starting accounts, wallet operations, transfers, payments with back-dated entries, groups, game sessions, all voting scenarios, AI validation (retries, invented places rejected, English enforced), the AI fallback, and migration of older databases.
-- **Browser tests (26):** every main screen, sign-in, wallet flows, Market, rewards, the Analyst, Hangouts with votes, the game and History, a simulated backend outage, a LAN-address crash regression, narrow screens and desktop layout.
+- **Backend tests (30):** databases, sign-in and lockout, forged tokens, empty starting accounts, wallet operations, transfers, payments with back-dated entries, groups, game sessions, all voting scenarios, occasions and Eidia (including validation and Barq's split), the Saving box, AI validation (retries, invented places rejected, English enforced), the AI fallback, and migration of older databases.
+- **Browser tests (29):** every main screen, sign-in, wallet flows, Market, rewards, the Analyst, Hangouts with votes, the game and History, Occasions with Eidia, the Saving box, no phone status bar, a simulated backend outage, a LAN-address crash regression, narrow screens and desktop layout.
 - Tests use isolated databases and a local stand-in for both AI engines; they never touch real data or call the real AI.
 - The UI does not break when the backend changes or fails: every screen shows a readable error with Try again, and an error boundary protects the rest of the app.
 

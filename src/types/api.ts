@@ -2,7 +2,7 @@
 export type CategoryId = 'food' | 'cafe' | 'health' | 'shopping' | 'groceries' | 'transportation' | 'entertainment';
 export interface User { id: string; name: string; balance: number; savings: number; cashback: number; hangoutBudget: number | null; }
 export interface DirectoryEntry { id: string; name: string; }
-export interface ServerTransaction { id: string; date: string; seller: string; category: CategoryId | null; amount: number; kind: 'purchase' | 'transfer' | 'topup' | 'cashback'; note?: string; }
+export interface ServerTransaction { id: string; date: string; seller: string; category: CategoryId | null; amount: number; kind: 'purchase' | 'transfer' | 'topup' | 'cashback' | 'savings'; note?: string; }
 export interface CategoryTemplate { id: CategoryId; name: string; nameAr: string; source: string; defaultCost: number; count: number; }
 export interface PlaceRecord { record_id: string; name: string; categoryId: CategoryId; general_category: string; address: string; rating5: number | null; price_category_ar: string | null; estimatedCost: number; }
 export interface PublicPlace { id: string; name: string; categoryId: CategoryId; address: string; district: string | null; rating: number | null; priceLabel: string | null; estimatedCost: number; }
@@ -44,4 +44,22 @@ export interface GameSession {
   id: string; createdBy: string; players: string[]; billAmount: number; status: 'playing' | 'finished' | 'settled'; hangoutId?: string;
   rounds: { gameId: string; scores: Record<string, number> }[]; currentRound: number;
   result: { totals: Record<string, number>; payer: string; tied: string[] } | null;
+}
+
+export type OccasionTypeId = 'eid-fitr' | 'eid-adha' | 'graduation' | 'home-party' | 'holiday';
+export interface OccasionType { id: OccasionTypeId; name: string; eidia: boolean; expectedDate: string | null; lines: string[]; }
+export interface OccasionLine { id: string; label: string; amount: number; done: boolean; }
+export interface EidiaEntry { id: string; name: string; amount: number; given: boolean; }
+/** An Eid, graduation, party or holiday budget (server/occasions.mjs). */
+export interface Occasion {
+  id: string; type: OccasionTypeId; typeName: string; hasEidia: boolean; title: string; date: string; budget: number;
+  lines: OccasionLine[]; eidia: EidiaEntry[]; createdAt: string; updatedAt: string;
+  totals: { lines: number; eidia: number; planned: number; left: number; over: boolean; done: number };
+  daysLeft: number; past: boolean; perWeek: number;
+}
+export interface OccasionPlan extends AiSource { message: string; pose: Pose; lines: { label: string; amount: number; note: string | null }[]; tips: string[]; total: number; available: number; }
+/** The Saving box and its end-of-year goal (server/savings.mjs). */
+export interface Savings {
+  saved: number; target: number | null; deadline: string; daysLeft: number; remaining: number | null;
+  progress: number; reached: boolean; perWeek: number; perDay: number; setAt: string | null; history: ServerTransaction[];
 }

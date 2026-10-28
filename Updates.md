@@ -195,3 +195,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** The other team branches (`Almalki`, `Rasel`, `Sultana`, `Testing`) have not been merged or synced with this log.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-29 00:25 (Asia/Riyadh)
+
+**Update:** Added **Occasions** (`/occasions`, from Home and More): budgets for Eid al-Fitr, Eid al-Adha, graduations, home parties and holiday trips. Each starts with suggested budget lines as shares of the budget, and the Eids start on their expected date (editable, since Eid dates follow the moon). Lines can be edited, added, removed and ticked off when bought; the two Eids also have an **Eidia** list (name, amount, given). Each occasion shows budget, planned, left or over, and how much to put aside each week until the date, and Barq can split the budget left after Eidia (its amounts are scaled to always fit). Added the **Saving box** (`/savings`, from the strip under the Home balance, a Home card and More): one goal, the amount to have saved by 31 December, with progress and how much to save per week and per day; money moves between the wallet and the box as "savings" transactions that never count as spending. The old "Your total savings" sheet was replaced by the Saving box. Removed the phone status bar (time, location arrow, 5G and battery) from every screen and moved the content up. New API routes are listed in the README; occasions and the goal are stored on each user in the Users database (older databases work without a migration).
+
+**Validation:** TypeScript build and production build passed. 30 backend tests passed (new: occasions and Eidia, occasion validation, Barq's split scaled to the budget, Saving box goal and moves). 29 Playwright tests passed twice (new: no status bar on any screen, an Eid al-Fitr budget with Eidia and Barq's split, the Saving box goal and moves). Checked Home, More, Occasions, an occasion page and the Saving box in Chrome against a scratch database.
+
+**Open items:** None.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

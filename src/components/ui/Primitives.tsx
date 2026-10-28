@@ -1,13 +1,10 @@
-import { ArrowLeft, Navigation, Signal } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Riyal } from './Brand';
 
 export function IconButton({ label, children, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; children: ReactNode }) {
   return <button type="button" className={`icon-button ${className}`} aria-label={label} {...props}>{children}</button>;
-}
-export function StatusBar() {
-  return <div className="status-bar" aria-hidden="true"><span className="status-time">12:10 <Navigation size={15} fill="currentColor" strokeWidth={3} /></span><span className="status-connection"><Signal size={22} strokeWidth={3.5} /><b>5G</b><span className="battery">42</span></span></div>;
 }
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) { return <header className="page-header"><h1>{title}</h1><div className="header-actions">{children}</div></header>; }
 export function DetailHeader({ title, fallback, children }: { title: string; fallback: string; children?: ReactNode }) {

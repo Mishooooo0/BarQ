@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle2, ChevronRight, Coffee, CreditCard, ReceiptText, ShieldCheck, Snowflake, Sparkles, Trophy, UnlockKeyhole } from 'lucide-react';
+import { Check, CheckCircle2, ChevronRight, Coffee, CreditCard, PiggyBank, ReceiptText, ShieldCheck, Snowflake, Sparkles, Trophy, UnlockKeyhole } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { motion, useReducedMotion } from 'motion/react';
 import { useWallet } from '../../app/WalletProvider';
@@ -12,7 +12,7 @@ import type { Transaction } from '../../types';
 
 export function TransactionList({ items }: { items: Transaction[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  return <div className="transaction-list">{items.map(item => <div key={item.id}><button className="transaction-row" aria-expanded={expanded === item.id} onClick={() => setExpanded(expanded === item.id ? null : item.id)}><span className={`transaction-icon ${item.amount > 0 ? 'positive' : ''}`}>{item.kind === 'cashback' ? <Sparkles /> : item.kind === 'shopping' ? <Coffee /> : <ReceiptText />}</span><span className="transaction-copy"><strong>{item.title}</strong><small>{item.date}</small></span><span className={item.amount > 0 ? 'positive-text' : ''}>{item.amount > 0 ? '+' : '−'}<Money amount={Math.abs(item.amount)} /></span></button>{expanded === item.id && <div className="transaction-receipt"><p>{item.subtitle}</p><p>Status: Completed</p><small>Reference: {item.id.toUpperCase()}</small></div>}</div>)}</div>;
+  return <div className="transaction-list">{items.map(item => <div key={item.id}><button className="transaction-row" aria-expanded={expanded === item.id} onClick={() => setExpanded(expanded === item.id ? null : item.id)}><span className={`transaction-icon ${item.amount > 0 ? 'positive' : ''}`}>{item.kind === 'cashback' ? <Sparkles /> : item.kind === 'savings' ? <PiggyBank /> : item.kind === 'shopping' ? <Coffee /> : <ReceiptText />}</span><span className="transaction-copy"><strong>{item.title}</strong><small>{item.date}</small></span><span className={item.amount > 0 ? 'positive-text' : ''}>{item.amount > 0 ? '+' : '−'}<Money amount={Math.abs(item.amount)} /></span></button>{expanded === item.id && <div className="transaction-receipt"><p>{item.subtitle}</p><p>Status: Completed</p><small>Reference: {item.id.toUpperCase()}</small></div>}</div>)}</div>;
 }
 export function Transactions() {
   const { state, history, refresh } = useWallet(); const [filter, setFilter] = useState('All');

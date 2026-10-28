@@ -38,6 +38,8 @@ async function login(id) { const { body } = await call('POST', '/api/auth/login'
 async function fund(token, amount) { const { status } = await call('POST', '/api/me/transactions', { token, body: { kind: 'topup', amount } }); assert.equal(status, 200); }
 const balanceOf = async token => (await call('GET', '/api/me', { token })).body.balance;
 const round = value => Math.round(value * 100) / 100;
+/** A Riyadh date `days` from today. */
+const dayAfter = days => new Date(Date.now() + 3 * 3_600_000 + days * 86_400_000).toISOString().slice(0, 10);
 const everyone = ['abdullah-m', 'abdullah-s', 'meshal', 'sultana', 'rasel'];
 
 test('health reports all four databases and the AI connection without the key', async () => {
@@ -370,6 +372,88 @@ test('votes are validated', async () => {
     assert.equal((await call('POST', '/api/hangouts', { token: t.meshal, body: { groupId: 'barq-developers', items: [] } })).status, 400);
     assert.equal((await call('POST', '/api/hangouts', { token: t.meshal, body: { groupId: 'barq-developers', items: [{ placeId: 'nope' }] } })).status, 400);
   } finally { update('users', db => { db.groups.find(g => g.id === 'barq-developers').members = everyone; }); }
+});
+
+test('occasions: an Eid starts on its expected date with suggested lines and an Eidia list', async () => {
+  const token = await login('sultana');
+  const types = (await call('GET', '/api/occasion-types')).body;
+  assert.deepEqual(types.map(t => t.id), ['eid-fitr', 'eid-adha', 'graduation', 'home-party', 'holiday']);
+  assert.ok(types.filter(t => t.eidia).every(t => /^\d{4}-\d{2}-\d{2}$/.test(t.expectedDate)));
+  const { status, body: eid } = await call('POST', '/api/occasions', { token, body: { type: 'eid-adha', budget: 2000 } });
+  assert.equal(status, 200);
+  assert.equal(eid.date, types.find(t => t.id === 'eid-adha').expectedDate);
+  assert.equal(eid.title, `Eid al-Adha ${eid.date.slice(0, 4)}`);
+  assert.equal(eid.hasEidia, true);
+  assert.deepEqual(eid.lines.map(l => [l.label, l.amount]), [['Udhiyah (sacrifice)', 900], ['Eid clothes', 300], ['Family gathering', 300]]);
+  assert.deepEqual(eid.totals, { lines: 1500, eidia: 0, planned: 1500, left: 500, over: false, done: 0 });
+  assert.ok(eid.perWeek > 0);
+  const eidia = [{ name: 'Noura', amount: 200, given: false }, { name: 'Faisal', amount: 400, given: true }];
+  const updated = (await call('PUT', `/api/occasions/${eid.id}`, { token, body: { eidia, lines: [...eid.lines.slice(0, 2), { ...eid.lines[2], done: true }] } })).body;
+  assert.deepEqual(updated.eidia.map(p => p.name), ['Noura', 'Faisal']);
+  assert.deepEqual(updated.totals, { lines: 1500, eidia: 600, planned: 2100, left: -100, over: true, done: 700 });
+  // The list comes back soonest first, and only to its owner.
+  await call('POST', '/api/occasions', { token, body: { type: 'home-party', budget: 500, date: dayAfter(3), title: 'Family dinner' } });
+  const list = (await call('GET', '/api/occasions', { token })).body;
+  assert.deepEqual(list.map(o => o.title), ['Family dinner', updated.title]);
+  assert.deepEqual((await call('GET', '/api/occasions', { token: await login('abdullah-s') })).body, []);
+  assert.equal((await call('DELETE', `/api/occasions/${eid.id}`, { token: await login('abdullah-s') })).status, 404);
+  assert.equal((await call('DELETE', `/api/occasions/${eid.id}`, { token })).status, 200);
+  assert.deepEqual((await call('GET', '/api/occasions', { token })).body.map(o => o.title), ['Family dinner']);
+});
+
+test('occasions are validated', async () => {
+  const token = await login('sultana');
+  const party = (await call('GET', '/api/occasions', { token })).body[0];
+  for (const body of [{ type: 'birthday', budget: 100 }, { type: 'graduation', budget: 100 }, { type: 'graduation', budget: 0, date: dayAfter(5) }, { type: 'holiday', budget: 100, date: '2020-01-01' }, { type: 'holiday', budget: 100, date: '2026-02-30' }, { type: 'holiday', budget: 100, date: dayAfter(800) }]) {
+    assert.equal((await call('POST', '/api/occasions', { token, body })).status, 400, JSON.stringify(body));
+  }
+  assert.equal((await call('PUT', `/api/occasions/${party.id}`, { token, body: { eidia: [{ name: 'Noura', amount: 100 }] } })).status, 400);
+  assert.equal((await call('PUT', `/api/occasions/${party.id}`, { token, body: { lines: [{ label: '', amount: 10 }] } })).status, 400);
+  assert.equal((await call('PUT', `/api/occasions/${party.id}`, { token, body: { lines: [{ label: 'Cake', amount: -5 }] } })).status, 400);
+  assert.equal((await call('PUT', '/api/occasions/nope', { token, body: { budget: 100 } })).status, 404);
+  const renamed = (await call('PUT', `/api/occasions/${party.id}`, { token, body: { title: 'Big dinner', budget: 800 } })).body;
+  assert.deepEqual([renamed.title, renamed.budget, renamed.lines.length], ['Big dinner', 800, party.lines.length]);
+});
+
+test('Barq suggests occasion lines that fit the budget left after Eidia', async () => {
+  const token = await login('abdullah-s');
+  const eid = (await call('POST', '/api/occasions', { token, body: { type: 'eid-fitr', budget: 1000 } })).body;
+  await call('PUT', `/api/occasions/${eid.id}`, { token, body: { eidia: [{ name: 'Sara', amount: 300 }] } });
+  const { status, body } = await call('POST', `/api/occasions/${eid.id}/plan`, { token });
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.available, 700);
+  assert.equal(body.message, 'Fake plan for Eid al-Fitr.');
+  // The fake answers 110% of what is available; the server scales it down to fit.
+  assert.ok(body.total <= 700 && body.total >= 690, `total ${body.total}`);
+  assert.deepEqual(body.lines.map(l => l.label), ['Clothes', 'Food', 'Gifts']);
+  assert.equal(body.source, 'claude');
+});
+
+test('Saving box: a goal for the end of the year, money in and out of the wallet', async () => {
+  const token = await login('abdullah-s');
+  const start = (await call('GET', '/api/savings', { token })).body;
+  const spentBefore = (await call('GET', '/api/me/spending?period=day', { token })).body.total;
+  assert.deepEqual([start.saved, start.target, start.reached], [0, null, false]);
+  assert.match(start.deadline, /^\d{4}-12-31$/);
+  await fund(token, 1000);
+  const wallet = await balanceOf(token);
+  assert.equal((await call('POST', '/api/savings/deposit', { token, body: { amount: wallet + 1 } })).status, 409);
+  const goal = (await call('PUT', '/api/savings/goal', { token, body: { target: 900 } })).body;
+  assert.equal(goal.target, 900);
+  assert.equal(goal.perWeek, Math.ceil(900 / Math.max(1, Math.ceil(goal.daysLeft / 7))));
+  const deposit = (await call('POST', '/api/savings/deposit', { token, body: { amount: 600 } })).body;
+  assert.deepEqual([deposit.savings.saved, deposit.savings.remaining, deposit.user.balance, deposit.user.savings], [600, 300, round(wallet - 600), 600]);
+  assert.equal(deposit.savings.history[0].kind, 'savings');
+  const back = (await call('POST', '/api/savings/withdraw', { token, body: { amount: 100 } })).body;
+  assert.deepEqual([back.savings.saved, back.user.balance], [500, round(wallet - 500)]);
+  assert.equal((await call('POST', '/api/savings/withdraw', { token, body: { amount: 501 } })).status, 409);
+  const done = (await call('POST', '/api/savings/deposit', { token, body: { amount: 400 } })).body.savings;
+  assert.deepEqual([done.saved, done.reached, done.progress, done.perWeek], [900, true, 1, 0]);
+  // Saving is not spending.
+  assert.equal((await call('GET', '/api/me/spending?period=day', { token })).body.total, spentBefore);
+  assert.equal((await call('PUT', '/api/savings/goal', { token, body: { target: 0 } })).status, 400);
+  assert.equal((await call('PUT', '/api/savings/goal', { token, body: { target: null } })).body.target, null);
+  assert.equal((await call('POST', '/api/savings/goal', { token, body: { amount: 5 } })).status, 404);
 });
 
 test('direct UI routes return the app shell or a build hint, and unknown API routes stay 404', async () => {

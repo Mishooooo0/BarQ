@@ -59,7 +59,7 @@ BarQ runs in Docker with `restart: always`, so it comes back after a crash or re
 
 Sign in by choosing a name and entering its 4-digit PIN. The five accounts from `Plan.md` are **Abdullah M, Abdullah S, Meshal, Sultana and Rasel**. Their test PINs are defined in [`server/seed.mjs`](server/seed.mjs) (`SEED_ACCOUNTS`). Change them there and run `npm run db:reset`.
 
-There is no mock data: every account starts with a zero balance, zero savings and cashback, no transactions and no budgets. Add money from Home to start; everything after that is real activity stored in the databases.
+There is no mock data: every account starts with a zero balance, an empty Saving box, zero cashback, no transactions, no budgets and no occasions. Add money from Home to start; everything after that is real activity stored in the databases.
 
 PINs are stored as salted scrypt hashes. A session is a signed token that lasts 7 days and survives server restarts. Five wrong PINs lock an account for 30 seconds.
 
@@ -67,7 +67,7 @@ PINs are stored as salted scrypt hashes. A session is a signed token that lasts 
 
 | Database | Where | Contents |
 | --- | --- | --- |
-| Users | `data/db/users.json` (created on first run, not committed) | 5 users: name, PIN hash, balance, savings, cashback, hangout budget and transactions (seller, category, amount, date), all starting empty. Groups of friends. |
+| Users | `data/db/users.json` (created on first run, not committed) | 5 users: name, PIN hash, balance, Saving box amount and goal, cashback, hangout budget, occasions (budget lines and Eidia) and transactions (seller, category, amount, date), all starting empty. Groups of friends. |
 | Games | `data/db/games.json` (created on first run, not committed) | One game for now, **Flappy Bird** (the flying game in Points Challenges), game sessions, and hangouts with their "who pays?" votes |
 | Payments | `data/db/payments.json` (created on first run, not committed) | Purchases made from Market → Pay at places, stored as **name, price, category, date** (plus id, user, place id and the wallet transaction id) |
 | Places & Categories | `data/categories.json`, `data/riyadh_all_seven_categories_v2.jsonl` (committed, read-only) | 7 category templates (Food, Cafe, Health, Shopping, Groceries, Transportation, Entertainment) and 208 Riyadh places |
@@ -95,6 +95,9 @@ The directory (`GET /api/users`) is open; anything under `/api/me` needs a sessi
 | `GET /api/hangouts?groupId=` · `POST /api/hangouts` `{ groupId, items }` | Group hangouts and their votes; start a vote from a planned hangout |
 | `POST /api/hangouts/:id/vote` `{ choice: split\|own\|pay }` · `POST /api/hangouts/:id/close` · `POST /api/hangouts/:id/pay` | Vote, end the vote early (starter only), pay your part |
 | `GET /api/payments` · `POST /api/payments` `{ placeId, date }` | Your payments; pay at a place on a date (`YYYY-MM-DD`, today or up to a year back) |
+| `GET /api/occasion-types` · `GET /api/occasions` · `POST /api/occasions` `{ type, budget, date?, title? }` | Occasion types (with expected Eid dates); your occasions; start one with suggested budget lines |
+| `PUT /api/occasions/:id` `{ title?, date?, budget?, lines?, eidia? }` · `DELETE /api/occasions/:id` · `POST /api/occasions/:id/plan` | Edit an occasion (lines and Eidia are sent as whole lists), delete it, or ask Barq to split its budget |
+| `GET /api/savings` · `PUT /api/savings/goal` `{ target }` · `POST /api/savings/deposit` · `POST /api/savings/withdraw` `{ amount }` | Saving box, its end-of-year goal, and moving money between the wallet and the box |
 | `GET /api/games` · `POST /api/game-sessions` · `GET /api/game-sessions/:id` · `POST /api/game-sessions/:id/scores` · `POST /api/game-sessions/:id/settle` | Who-pays-the-bill games |
 
 Send the token as `Authorization: Bearer <token>`. Errors are always JSON: `{ "error": "message" }`.
@@ -123,6 +126,21 @@ After the analyst plans a hangout on the **Hangouts** page, tap **Ask the group:
 When everyone who owed has paid, the hangout ends and moves from the **Active** tab to the **History** tab, with its end date.
 
 The bill is the plan's per-person cost times the group size, priced from the Places database. Whoever owes taps **Pay**: the payer pays the whole bill, or each member pays their share. Each payment is charged to the wallet and saved in the Payments database. The rules are in [`server/hangouts.mjs`](server/hangouts.mjs).
+
+## Occasions and Eidia
+
+Open **Occasions** from Home or More → Explore to prepare a budget for **Eid al-Fitr**, **Eid al-Adha**, a **graduation**, a **home party** or a **holiday trip**. Choose the type, a date and a total budget. The Eids start on their expected date (Eid dates follow the moon, so the date can be changed), and every occasion starts with suggested budget lines as shares of the budget (for example Udhiyah, Eid clothes and Family gathering for Eid al-Adha). Then:
+
+- change any amount, add or remove lines, and tick lines off when bought;
+- for the two Eids, keep an **Eidia** list: who you give to, how much, and tick each one when given;
+- see the budget, what is planned and what is left (or how much it is over), and how much to put aside each week until the day;
+- tap **Split my budget** and Barq suggests lines and tips for the part of the budget not already promised as Eidia. Its amounts are always scaled to fit the budget. **Use this split** replaces the lines and keeps the Eidia list.
+
+The rules and templates are in [`server/occasions.mjs`](server/occasions.mjs).
+
+## Saving box
+
+Open **Saving box** from the strip under the balance on Home, the card on Home, or More → Explore. Set a goal for the amount you want saved by **31 December** of this year, then move money from your wallet into the box (or back out). Barq shows the progress and how much to save each week and each day to reach the goal, and celebrates when you reach it. Moves are wallet transactions of the kind "savings", so they appear in your history but never count as spending. The logic is in [`server/savings.mjs`](server/savings.mjs).
 
 ## Market → Pay at places
 

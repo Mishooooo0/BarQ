@@ -6,7 +6,9 @@ import { aiStatus, askJson } from './ai.mjs';
 import { read, update } from './db.mjs';
 import { createSession, GameError, recordScore } from './games.mjs';
 import { CHOICES, CHOICE_LABELS, decide, dues } from './hangouts.mjs';
+import { budgetOf, dateOf, eidiaOf, expectedDate, findType, linesOf, MAX_OCCASIONS, publicOccasion, publicTypes, suggestPlan, templateLines } from './occasions.mjs';
 import { categories, categorySummary, findCategory, places } from './places.mjs';
+import { MAX_GOAL, savingsView } from './savings.mjs';
 import { addDays, dayKey } from './time.mjs';
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -349,6 +351,88 @@ route('POST', '/api/payments', async ({ req }) => {
     return record;
   });
   return { payment: publicPayment(payment), user: result.user };
+});
+
+// Occasions (server/occasions.mjs): Eid, graduation, party and holiday budgets, with an Eidia list for the two Eids.
+const findOccasion = (user, occasionId) => (user.occasions ?? []).find(o => o.id === occasionId) ?? fail(404, 'Occasion not found.');
+route('GET', '/api/occasion-types', () => publicTypes());
+route('GET', '/api/occasions', ({ req }) => {
+  const now = new Date();
+  // Upcoming first (soonest at the top), then past ones (most recent first).
+  return (me(read('users'), req).occasions ?? []).map(o => publicOccasion(o, now))
+    .sort((a, b) => Number(a.past) - Number(b.past) || (a.past ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)));
+});
+route('POST', '/api/occasions', async ({ req }) => {
+  const body = await readBody(req); const id = currentUserId(req); const now = new Date();
+  const type = findType(body.type) ?? fail(400, 'Choose an occasion type.');
+  const budget = budgetOf(body.budget);
+  const date = dateOf(body.date || expectedDate(type, now) || '', now);
+  const title = body.title == null || body.title === '' ? `${type.name} ${date.slice(0, 4)}` : text(body.title, 'Name', 40);
+  return update('users', db => {
+    const user = findUser(db, id, 401);
+    user.occasions ??= [];
+    if (user.occasions.length >= MAX_OCCASIONS) fail(409, `You can plan up to ${MAX_OCCASIONS} occasions. Delete an old one first.`);
+    const occasion = { id: `occasion-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, type: type.id, title, date, budget, lines: templateLines(type, budget), eidia: [], createdAt: now.toISOString(), updatedAt: now.toISOString() };
+    user.occasions.push(occasion);
+    return publicOccasion(occasion, now);
+  });
+});
+route('PUT', '/api/occasions/:id', async ({ req, params }) => {
+  const body = await readBody(req); const id = currentUserId(req); const now = new Date();
+  return update('users', db => {
+    const occasion = findOccasion(findUser(db, id, 401), params.id);
+    if ('title' in body) occasion.title = text(body.title, 'Name', 40);
+    if ('date' in body) occasion.date = dateOf(body.date, now, occasion.date);
+    if ('budget' in body) occasion.budget = budgetOf(body.budget);
+    if ('lines' in body) occasion.lines = linesOf(body.lines);
+    if ('eidia' in body) occasion.eidia = eidiaOf(body.eidia, findType(occasion.type)?.eidia);
+    occasion.updatedAt = now.toISOString();
+    return publicOccasion(occasion, now);
+  });
+});
+route('DELETE', '/api/occasions/:id', ({ req, params }) => {
+  const id = currentUserId(req);
+  return update('users', db => {
+    const user = findUser(db, id, 401);
+    findOccasion(user, params.id);
+    user.occasions = user.occasions.filter(o => o.id !== params.id);
+    return { deleted: params.id };
+  });
+});
+route('POST', '/api/occasions/:id/plan', ({ req, params }) => {
+  const user = me(read('users'), req);
+  return suggestPlan(findOccasion(user, params.id), user, insights(user).summary.month, askJson);
+});
+
+// Saving box (server/savings.mjs): move money between the wallet and the box, toward a goal for the end of the year.
+route('GET', '/api/savings', ({ req }) => savingsView(me(read('users'), req)));
+route('PUT', '/api/savings/goal', async ({ req }) => {
+  const body = await readBody(req); const id = currentUserId(req); const now = new Date();
+  const target = body.target == null ? null : amount(body.target, { max: MAX_GOAL, field: 'goal' });
+  return update('users', db => {
+    const user = findUser(db, id, 401);
+    user.savingsGoal = target == null ? null : { target, setAt: now.toISOString() };
+    return savingsView(user, now);
+  });
+});
+route('POST', '/api/savings/:direction', async ({ req, params }) => {
+  if (!['deposit', 'withdraw'].includes(params.direction)) fail(404, 'Not found.');
+  const body = await readBody(req); const id = currentUserId(req); const now = new Date();
+  const value = amount(body.amount, { max: 100000 });
+  return update('users', db => {
+    const user = findUser(db, id, 401);
+    const saved = user.savings ?? 0;
+    if (params.direction === 'deposit') {
+      if (value > user.balance) fail(409, 'Not enough balance.');
+      addTransaction(user, { seller: 'Saving box', amount: -value, kind: 'savings', note: 'added to the box' }, now);
+      user.savings = cents(saved + value);
+    } else {
+      if (value > saved) fail(409, `The Saving box has only SAR ${saved.toLocaleString('en-US')}.`);
+      addTransaction(user, { seller: 'From Saving box', amount: value, kind: 'savings', note: 'back to the wallet' }, now);
+      user.savings = cents(saved - value);
+    }
+    return { savings: savingsView(user, now), user: publicUser(user) };
+  });
 });
 
 // Games database

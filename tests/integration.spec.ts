@@ -229,3 +229,74 @@ test('top-up works when randomUUID is unavailable (LAN HTTP address)', async ({ 
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await expect(page.getByLabel('Available balance 100.00 Saudi riyals')).toBeVisible();
 });
+
+test('no phone status bar (time, signal, battery) on any screen', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Meshal', exact: true })).toBeVisible();
+  await expect(page.locator('.status-bar')).toHaveCount(0);
+  await signIn(page);
+  for (const path of ['/', '/more', '/occasions', '/savings', '/hangouts']) {
+    await page.goto(path);
+    await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+    await expect(page.locator('.status-bar, .battery')).toHaveCount(0);
+    expect(await page.locator('.phone').innerText()).not.toMatch(/\b5G\b|12:10/);
+  }
+});
+
+test('Occasions: plan Eid al-Fitr with an Eidia list and use Barq\'s split', async ({ page }) => {
+  await signIn(page, 'sultana');
+  await page.getByRole('link', { name: /Occasions/ }).click();
+  await expect(page.getByText('Nothing planned yet')).toBeVisible();
+  await page.getByRole('radio', { name: 'Eid al-Fitr' }).click();
+  await page.getByLabel('Occasion budget').fill('1200');
+  await page.getByRole('button', { name: 'Create the budget' }).click();
+  await expect(page.getByRole('heading', { name: /Eid al-Fitr \d{4}/ })).toBeVisible();
+  const lines = page.getByRole('list', { name: 'Budget lines' });
+  await expect(lines.getByRole('listitem')).toHaveCount(4);
+  await page.getByLabel('Eidia name').fill('Noura');
+  await page.getByLabel('Eidia amount').fill('100');
+  await page.getByLabel('Eidia amount').press('Enter');
+  await page.getByLabel('Eidia name').fill('Faisal');
+  await page.getByLabel('Eidia amount').fill('200');
+  await page.getByLabel('Eidia amount').press('Enter');
+  await expect(page.getByRole('heading', { name: /Eidia · .*300\.00 for 2 people/ })).toBeVisible();
+  await page.getByLabel('Given to Faisal').check();
+  await expect(page.getByText(/Bought or given so far: .*200\.00/)).toBeVisible();
+  await page.getByRole('button', { name: 'Split the rest of my budget' }).click();
+  await expect(page.locator('.analyst-bubble')).toHaveText('Fake plan for Eid al-Fitr.');
+  await expect(page.getByText('Answered by Barq AI.')).toBeVisible();
+  await page.getByRole('button', { name: 'Use this split' }).click();
+  await expect(lines.getByRole('listitem')).toHaveCount(3);
+  await expect(lines).toContainText('Clothes');
+  // Saved on the server: the list shows the occasion and stays within the budget.
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Eidia list' }).getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByLabel('Given to Faisal')).toBeChecked();
+  await page.getByRole('button', { name: 'Go back' }).click();
+  await expect(page.locator('.occasion-card')).toHaveCount(1);
+  await expect(page.locator('.occasion-card')).not.toContainText('Over budget');
+});
+
+test('Saving box: set an end-of-year goal and move money from the wallet', async ({ page }) => {
+  fund('abdullah-m', 1000);
+  await signIn(page, 'abdullah-m');
+  await page.getByRole('link', { name: /Saving box/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Saving box' })).toBeVisible();
+  await page.getByLabel('Saving goal').fill('800');
+  await page.getByRole('button', { name: 'Set goal' }).click();
+  await expect(page.locator('.analyst-bubble')).toContainText('a week');
+  await page.getByLabel('Amount to move').fill('300');
+  await page.getByRole('button', { name: 'Add to the box' }).click();
+  await expect(page.getByText('SAR 300 added to your Saving box.')).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: 'Progress to your goal' })).toHaveAttribute('aria-valuenow', '38');
+  await expect(page.getByLabel('Amount to move')).toHaveValue('');
+  await page.getByLabel('Amount to move').fill('500');
+  await page.getByRole('button', { name: 'Add to the box' }).click();
+  await expect(page.locator('.analyst-bubble')).toContainText('You reached your goal');
+  await page.getByLabel('Amount to move').fill('5000');
+  await page.getByRole('button', { name: 'Take out' }).click();
+  await expect(page.getByRole('alert')).toContainText('only SAR 800');
+  await page.goto('/');
+  await expect(page.locator('.savings-strip')).toContainText('800.00');
+  await expect(page.getByLabel(/Available balance 200\.00/)).toBeVisible();
+});

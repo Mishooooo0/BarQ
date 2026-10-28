@@ -33,7 +33,7 @@ test('lower Products tiles open and show no sample records', async ({ page }) =>
   await page.evaluate(() => document.fonts.ready);
   await expect.poll(() => page.locator('main').evaluate(el => getComputedStyle(el).opacity)).toBe('1');
   await page.getByRole('button', { name: 'Offers', exact: true }).scrollIntoViewIfNeeded();
-  await expect.poll(async () => (await page.locator('.more-phone .page-header').boundingBox())?.y).toBe(54);
+  await expect.poll(async () => (await page.locator('.more-phone .page-header').boundingBox())?.y).toBe(0);
   await page.screenshot({ path: `${captureDir}/more-lower.png` });
   await page.getByRole('button', { name: 'Youth Accounts', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('No youth accounts yet');

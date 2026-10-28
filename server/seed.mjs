@@ -21,7 +21,7 @@ export const SEED_GAMES = [
 export function buildSeed(now = new Date()) {
   const users = SEED_ACCOUNTS.map(account => ({
     id: account.id, name: account.name, ...hashPin(account.pin), balance: 0, savings: 0, cashback: 0,
-    hangoutBudget: null, createdAt: now.toISOString(), transactions: [],
+    hangoutBudget: null, savingsGoal: null, occasions: [], createdAt: now.toISOString(), transactions: [],
   }));
   return { users: { users, groups: SEED_GROUPS }, games: { games: SEED_GAMES, sessions: [], hangouts: [] }, payments: { payments: [] } };
 }

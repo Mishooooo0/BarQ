@@ -16,7 +16,7 @@ export function relativeDay(value: string) {
 
 export function toTransaction(t: ServerTransaction): Transaction {
   const kind = t.kind === 'purchase' ? 'shopping' : t.kind;
-  const detail = t.category ? categoryNames[t.category] : t.kind === 'transfer' ? `Transfer${t.note ? ` · ${t.note}` : ''}` : t.kind === 'topup' ? 'Money added' : t.kind === 'cashback' ? 'Rewards' : 'Payment';
+  const detail = t.category ? categoryNames[t.category] : t.kind === 'transfer' ? `Transfer${t.note ? ` · ${t.note}` : ''}` : t.kind === 'topup' ? 'Money added' : t.kind === 'cashback' ? 'Rewards' : t.kind === 'savings' ? `Saving box${t.note ? ` · ${t.note}` : ''}` : 'Payment';
   return { id: t.id, title: t.seller, subtitle: `${detail} · ${time.format(new Date(t.date))}`, amount: t.amount, date: relativeDay(t.date), kind, category: t.category };
 }
 
