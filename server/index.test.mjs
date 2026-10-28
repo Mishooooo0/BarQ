@@ -306,6 +306,8 @@ test('scenario 1: one "I will pay it" wins over three "split"', async () => {
   const paid = await call('POST', `/api/hangouts/${hangout.id}/pay`, { token: t.meshal });
   assert.equal(paid.status, 200);
   assert.equal(paid.body.hangout.status, 'settled');
+  assert.ok(Date.parse(paid.body.hangout.endedAt) > 0, 'a finished hangout records when it ended');
+  assert.equal(hangout.endedAt, null);
   assert.equal(await balanceOf(t.meshal), round(before - hangout.billAmount));
   assert.ok((await call('GET', '/api/payments', { token: t.meshal })).body.some(p => p.price === hangout.billAmount && p.name.includes('BarQ Developers')));
   assert.equal((await vote(t.meshal, hangout.id, 'split')).status, 409);

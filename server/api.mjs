@@ -216,6 +216,7 @@ function publicHangout(h, users, me) {
   return {
     id: h.id, groupId: h.groupId, groupName: h.groupName, createdBy: h.createdBy, createdByName: name(h.createdBy), createdAt: h.createdAt,
     items: h.items, perPerson: h.perPerson, billAmount: h.billAmount, status: h.status, sessionId: h.sessionId ?? null,
+    endedAt: h.status === 'settled' ? h.settledAt ?? h.closedAt ?? h.createdAt : null,
     members: h.members.map(uid => ({ id: uid, name: name(uid), voted: uid in h.votes })), votes: h.status === 'voting' ? null : Object.fromEntries(Object.entries(h.votes).map(([uid, c]) => [uid, c])),
     myVote: h.votes[me] ?? null, voteCount: Object.keys(h.votes).length,
     result: h.result ? { ...h.result, label: h.result.outcome === 'volunteer' || (h.result.outcome === 'game' && h.result.payer) ? `${name(h.result.payer)} pays the bill` : h.result.outcome === 'game' ? `${h.result.players.map(name).join(' vs ')}: the highest score pays` : CHOICE_LABELS[h.result.outcome], players: h.result.players?.map(uid => ({ id: uid, name: name(uid) })) ?? null, payerName: h.result.payer ? name(h.result.payer) : null } : null,
@@ -240,7 +241,8 @@ route('GET', '/api/hangouts', ({ req, url }) => {
   const id = currentUserId(req); const users = read('users');
   const mine = users.groups.filter(g => g.members.includes(id)).map(g => g.id);
   const groupId = url.searchParams.get('groupId');
-  return (read('games').hangouts ?? []).filter(h => mine.includes(h.groupId) && (!groupId || h.groupId === groupId)).slice(0, 20).map(h => publicHangout(h, users.users, id));
+  // Up to the last 50 hangouts (the stored limit); finished ones are the group's history.
+  return (read('games').hangouts ?? []).filter(h => mine.includes(h.groupId) && (!groupId || h.groupId === groupId)).map(h => publicHangout(h, users.users, id));
 });
 route('POST', '/api/hangouts', async ({ req }) => {
   const body = await readBody(req); const id = currentUserId(req); const now = new Date();
@@ -310,7 +312,7 @@ route('POST', '/api/hangouts/:id/pay', ({ req, params }) => {
   const updated = update('games', db => {
     const stored = db.hangouts.find(h => h.id === params.id);
     stored.paid = { ...stored.paid, [id]: payment.id };
-    if (dues(stored).every(d => stored.paid[d.userId])) stored.status = 'settled';
+    if (dues(stored).every(d => stored.paid[d.userId])) { stored.status = 'settled'; stored.settledAt = now.toISOString(); }
     return publicHangout(stored, users, id);
   });
   return { hangout: updated, user: result.user, payment: publicPayment(payment) };

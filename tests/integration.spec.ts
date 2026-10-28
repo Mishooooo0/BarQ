@@ -146,8 +146,14 @@ test('who pays: one "I will pay it" wins and that person pays the bill', async (
   await expect(card.locator('.hangout-result')).toHaveText('Meshal pays the bill');
   await expect(card).toContainText('split 3 · own 1 · I will pay 1');
   await card.getByRole('button', { name: /^Pay/ }).click();
-  await expect(card.locator('.payment-done .payment-mascot')).toBeVisible();
-  await expect(card.locator('.hangout-status')).toHaveText('Paid');
+  await expect(page.locator('.payment-done .payment-mascot')).toBeVisible();
+  // Everyone who owed has paid, so the hangout ends and moves from Active to History.
+  await expect(page.getByRole('tab', { name: 'Active (0)' })).toBeVisible();
+  await page.getByRole('tab', { name: 'History (1)' }).click();
+  const ended = page.locator('.hangout-card').first();
+  await expect(ended.locator('.hangout-status')).toHaveText('Paid');
+  await expect(ended.locator('.hangout-date')).toContainText('Ended');
+  await expect(ended.locator('.hangout-result')).toHaveText('Meshal pays the bill');
 });
 
 test('who pays: two volunteers play Flappy Bird and the highest score pays', async ({ page }) => {
@@ -209,6 +215,7 @@ test('when Claude-Dev is slow the Ring API plans the day and the screen says so'
   await page.getByRole('button', { name: 'Plan my day' }).click();
   await expect(page.locator('.plan-item').first()).toBeVisible();
   await expect(page.locator('.ai-source')).toContainText('Answered by Barq AI (backup engine, because the main one was slow or unavailable).');
+});
 
 test('top-up works when randomUUID is unavailable (LAN HTTP address)', async ({ page }) => {
   // Browsers only offer crypto.randomUUID on HTTPS or localhost; the app must not depend on it.
@@ -221,5 +228,4 @@ test('top-up works when randomUUID is unavailable (LAN HTTP address)', async ({ 
   await expect(page.getByRole('status')).toContainText('Money added');
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await expect(page.getByLabel('Available balance 100.00 Saudi riyals')).toBeVisible();
-});
 });

@@ -7,6 +7,7 @@ import { DetailHeader, ErrorState, MockNote, Money } from '../../components/ui/P
 import { AnalystSprite } from '../Analyst/AnalystSprite';
 import { AnsweredBy, BudgetSlider, PlanView, useRequest, wholeRiyals } from '../Analyst/parts';
 import { HangoutVotes } from './HangoutVotes';
+import { PaymentDone } from '../../components/PaymentDone';
 import type { Group, Hangout, HangoutPlan, Pose } from '../../types/api';
 
 /** Hangouts: your groups, the AI plan for an outing, and the group's "who pays?" votes. */
@@ -21,6 +22,8 @@ export function Hangouts() {
   const [groupId, setGroupId] = useState('');
   const [newMember, setNewMember] = useState('');
   const [adding, setAdding] = useState<{ busy: boolean; error: string; done: string }>({ busy: false, error: '', done: '' });
+  const [view, setView] = useState<'active' | 'history'>('active');
+  const [paid, setPaid] = useState<number | null>(null);
 
   const fetchGroups = useCallback(() => loadGroups(() => api<Group[]>('/api/me/groups')), [loadGroups]);
   useEffect(() => { void fetchGroups(); }, [fetchGroups]);
@@ -67,6 +70,9 @@ export function Hangouts() {
   else if (plan.data) { pose = plan.data.pose; speech = plan.data.message; }
 
   const group = groups.data?.find(g => g.id === groupId);
+  // A hangout ends when everyone who owed has paid; it then moves from Active to History.
+  const active = hangouts.data?.filter(h => h.status !== 'settled') ?? null;
+  const history = hangouts.data?.filter(h => h.status === 'settled') ?? null;
   const outside = group ? directory.filter(d => !group.members.some(m => m.id === d.id)) : [];
   return <><DetailHeader title="Hangouts" fallback="/" /><div className="detail-content analyst-content">
     <section className="analyst-hero" aria-live="polite"><AnalystSprite pose={pose} /><p className="analyst-bubble">{speech}</p></section>
@@ -91,7 +97,17 @@ export function Hangouts() {
         {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? 'Starting the vote…' : "Ask the group: who's paying?"}</button>}
         {asking.error && <p className="error-text" role="alert">{asking.error}</p>}
       </>}
-      <section className="analyst-section"><h3>Who's paying? Group votes</h3><p className="fine-print">One "I will pay it" pays. Two or more play Flappy Bird, each on their own phone, and the highest score pays. Otherwise the most votes win, and a tie means everyone pays their own.</p><HangoutVotes hangouts={hangouts.data} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} /></section>
+      <section className="analyst-section"><h3>Who's paying? Group votes</h3>
+        {paid != null && <PaymentDone title="Payment done"><Money amount={paid} /><p>Paid from your barq wallet and saved in Payments. Once everyone has paid, the hangout moves to History.</p><button type="button" className="secondary-button" onClick={() => setPaid(null)}>Done</button></PaymentDone>}
+        <div className="filter-tabs hangout-tabs" role="tablist" aria-label="Hangouts">
+          <button role="tab" aria-selected={view === 'active'} aria-pressed={view === 'active'} onClick={() => setView('active')}>Active{active ? ` (${active.length})` : ''}</button>
+          <button role="tab" aria-selected={view === 'history'} aria-pressed={view === 'history'} onClick={() => setView('history')}>History{history ? ` (${history.length})` : ''}</button>
+        </div>
+        {view === 'active' ? <>
+          <p className="fine-print">One "I will pay it" pays. Two or more play Flappy Bird, each on their own phone, and the highest score pays. Otherwise the most votes win, and a tie means everyone pays their own.</p>
+          <HangoutVotes hangouts={active} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} onPaid={setPaid} empty="No active hangouts. Plan one above, then ask the group who's paying." />
+        </> : <HangoutVotes hangouts={history} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} empty="Finished hangouts appear here once everyone has paid." />}
+      </section>
     </>}
     <MockNote />
   </div></>;

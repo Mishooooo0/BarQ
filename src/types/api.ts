@@ -34,6 +34,8 @@ export interface Hangout {
   id: string; groupId: string; groupName: string; createdBy: string; createdByName: string; createdAt: string;
   items: { time: string; label: string; placeId: string; name: string; category: CategoryId; estimate: number }[];
   perPerson: number; billAmount: number; status: 'voting' | 'playing' | 'decided' | 'settled'; sessionId: string | null;
+  /** When everyone who owed has paid; ended hangouts move to History. */
+  endedAt: string | null;
   members: { id: string; name: string; voted: boolean }[]; votes: Record<string, VoteChoice> | null; myVote: VoteChoice | null; voteCount: number;
   result: { outcome: 'volunteer' | 'game' | 'split' | 'own'; label: string; payer: string | null; payerName: string | null; players: { id: string; name: string }[] | null; tally: Record<VoteChoice, number> } | null;
   dues: { userId: string; name: string; amount: number; paid: boolean }[];

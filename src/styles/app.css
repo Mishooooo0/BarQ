@@ -490,3 +490,5 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); min-height: ca
 .payment-done .primary-button, .payment-done .secondary-button { margin-top: 14px; }
 .analyst-card + .analyst-card { margin-top: -14px; }
 .hangouts-link { margin-top: 22px; }
+.hangout-tabs { margin: 8px 0 10px; }
+.hangout-date { font-size: 10px; color: var(--muted); margin-top: 4px; }
