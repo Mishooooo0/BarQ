@@ -2,13 +2,13 @@ import { Box, Heart, Search, ShoppingCart, X } from 'lucide-react';
 import { Link } from 'react-router';
 import { useState } from 'react';
 import { categories, products } from '../../data/mock';
-import { useDemo } from '../../app/DemoProvider';
+import { useWallet } from '../../app/WalletProvider';
 import { useSheet } from '../../hooks/useSheet';
 import { Artwork } from '../../components/ui/Artwork';
 import { EmptyState, IconButton, Money, PageHeader } from '../../components/ui/Primitives';
 
 export function Market() {
-  const [query, setQuery] = useState(''); const [favoritesOnly, setFavoritesOnly] = useState(false); const { state } = useDemo(); const { open } = useSheet();
+  const [query, setQuery] = useState(''); const [favoritesOnly, setFavoritesOnly] = useState(false); const { state } = useWallet(); const { open } = useSheet();
   const normalized = query.trim().toLowerCase();
   const results = products.filter(p => (!favoritesOnly || state.favorites.includes(p.id)) && `${p.name} ${p.category} ${p.detail}`.toLowerCase().includes(normalized));
   const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);

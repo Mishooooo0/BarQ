@@ -8,10 +8,10 @@ import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
 import '@fontsource/inter/900.css';
 import { App } from './app/App';
-import { DemoProvider } from './app/DemoProvider';
+import { SessionProvider } from './app/SessionProvider';
 import './styles/tokens.css';
 import './styles/app.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><BrowserRouter><DemoProvider><App /></DemoProvider></BrowserRouter></React.StrictMode>,
+  <React.StrictMode><BrowserRouter><SessionProvider><App /></SessionProvider></BrowserRouter></React.StrictMode>,
 );

@@ -1,48 +1,45 @@
+// Production server: the API plus the built UI from dist/, with the app shell returned for client-side routes.
 import http from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { handleApi, sendJson } from './api.mjs';
+import { ensureDb } from './db.mjs';
+import { root } from './paths.mjs';
 
-const places = readFileSync(new URL('../data/riyadh_all_seven_categories_v2.jsonl', import.meta.url), 'utf8').trim().split(/\r?\n/).map(JSON.parse);
-const categories = [...new Set(places.map(p => p.general_category))].sort();
-const port = Number(process.env.PORT || 3001);
-const dist = path.resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
+const dist = path.join(root, 'dist');
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
-const send = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)); };
+const missingBuild = '<!doctype html><meta charset="utf-8"><title>barq</title><body style="font-family:system-ui;padding:40px"><h1>The UI has not been built yet</h1><p>Run <code>npm run build</code>, or use <code>npm run dev</code> while developing. The API is running.</p>';
 
-export function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed' });
-  let url;
-  try { url = new URL(req.url, 'http://localhost'); } catch { return send(res, 400, { error: 'Invalid URL' }); }
-  if (url.pathname === '/api/health') return send(res, 200, { status: 'ok', places: places.length });
-  if (url.pathname === '/api/categories') return send(res, 200, categories.map(name => ({ name, count: places.filter(p => p.general_category === name).length })));
-  if (url.pathname === '/api/places') {
-    const category = url.searchParams.get('category');
-    const query = (url.searchParams.get('q') || '').trim().toLocaleLowerCase();
-    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 20));
-    const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
-    const found = places.filter(p => (!category || p.general_category === category) && (!query || `${p.name} ${p.address} ${p.district || ''}`.toLocaleLowerCase().includes(query)));
-    return send(res, 200, { total: found.length, limit, offset, items: found.slice(offset, offset + limit) });
-  }
-  const match = url.pathname.match(/^\/api\/places\/([^/]+)$/);
-  if (match) {
-    let id;
-    try { id = decodeURIComponent(match[1]); } catch { return send(res, 400, { error: 'Invalid place ID' }); }
-    const place = places.find(p => p.record_id === id);
-    return place ? send(res, 200, place) : send(res, 404, { error: 'Place not found' });
-  }
-  if (url.pathname.startsWith('/api/')) return send(res, 404, { error: 'Not found' });
+function serveStatic(req, res, url) {
   let pathname;
-  try { pathname = decodeURIComponent(url.pathname); } catch { return send(res, 400, { error: 'Invalid path' }); }
+  try { pathname = decodeURIComponent(url.pathname); } catch { return sendJson(res, 400, { error: 'Invalid path.' }); }
   const requested = path.resolve(dist, `.${pathname}`);
-  if (requested !== dist && !requested.startsWith(dist + path.sep)) return send(res, 403, { error: 'Forbidden' });
+  if (requested !== dist && !requested.startsWith(dist + path.sep)) return sendJson(res, 403, { error: 'Forbidden.' });
   const file = existsSync(requested) && statSync(requested).isFile() ? requested : (path.extname(pathname) ? null : path.join(dist, 'index.html'));
-  if (!file || !existsSync(file)) return send(res, 404, { error: 'Not found' });
+  if (!file) return sendJson(res, 404, { error: 'Not found.' });
+  if (!existsSync(file)) { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8' }); return res.end(missingBuild); }
   const body = readFileSync(file);
-  res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream', 'content-length': body.length });
+  // Hashed assets can be cached forever; the HTML shell must always be fresh so new builds are picked up.
+  const cache = file.startsWith(path.join(dist, 'assets')) ? 'public, max-age=31536000, immutable' : 'no-cache';
+  res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream', 'content-length': body.length, 'cache-control': cache });
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-if (process.argv[1]?.replaceAll('\\', '/').endsWith('/server/index.mjs')) {
-  http.createServer(handler).listen(port, '127.0.0.1', () => console.log(`BarQ API listening on http://127.0.0.1:${port}`));
+export async function handler(req, res) {
+  let url;
+  try { url = new URL(req.url, 'http://localhost'); } catch { return sendJson(res, 400, { error: 'Invalid URL.' }); }
+  if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return handleApi(req, res);
+  if (req.method !== 'GET' && req.method !== 'HEAD') return sendJson(res, 405, { error: 'Method not allowed.' });
+  try { serveStatic(req, res, url); }
+  catch (error) { console.error('[barq]', error); sendJson(res, 500, { error: 'Something went wrong on the server.' }); }
 }
+
+export function startServer({ host = '127.0.0.1', port = 3001, label = 'BarQ API' } = {}) {
+  const created = ensureDb();
+  if (created.length) console.log(`Created ${created.join(' and ')} database${created.length > 1 ? 's' : ''} in ${process.env.BARQ_DB_DIR || 'data/db'}.`);
+  const server = http.createServer(handler);
+  server.listen(port, host, () => console.log(`${label} listening on http://${host}:${port}`));
+  return server;
+}
+
+if (process.argv[1]?.replaceAll('\\', '/').endsWith('/server/index.mjs')) startServer({ port: Number(process.env.PORT || 3001) });

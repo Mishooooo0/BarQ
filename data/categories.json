@@ -1,0 +1,9 @@
+[
+  { "id": "food", "name": "Food", "nameAr": "مطاعم", "source": "Food & Dining", "defaultCost": 60 },
+  { "id": "cafe", "name": "Cafe", "nameAr": "مقاهي", "source": "Coffee & Cafés", "defaultCost": 30 },
+  { "id": "health", "name": "Health", "nameAr": "صحة", "source": "Health & Wellness", "defaultCost": 80 },
+  { "id": "shopping", "name": "Shopping", "nameAr": "تسوق", "source": "Shopping", "defaultCost": 150 },
+  { "id": "groceries", "name": "Groceries", "nameAr": "بقالة", "source": "Groceries", "defaultCost": 120 },
+  { "id": "transportation", "name": "Transportation", "nameAr": "مواصلات", "source": "Transportation", "defaultCost": 25 },
+  { "id": "entertainment", "name": "Entertainment", "nameAr": "ترفيه", "source": "Entertainment", "defaultCost": 90 }
+]

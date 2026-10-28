@@ -15,5 +15,8 @@ export function DetailHeader({ title, fallback, children }: { title: string; fal
   return <header className="detail-header"><IconButton label="Go back" className="light" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate(fallback)}><ArrowLeft /></IconButton><h1>{title}</h1>{children}</header>;
 }
 export function Money({ amount, className = '' }: { amount: number; className?: string }) { return <span className={`money ${className}`}><Riyal /> {amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>; }
-export function DemoNote() { return <p className="demo-note">Unofficial demo · Fictional data · No real money moves</p>; }
+export function MockNote() { return <p className="mock-note">Prototype · Mock accounts · No real money moves</p>; }
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return <div className="error-state" role="alert"><p>{message}</p>{onRetry && <button type="button" className="secondary-button" onClick={onRetry}>Try again</button>}</div>;
+}
 export function EmptyState({ title, children }: { title: string; children: ReactNode }) { return <div className="empty-state"><h2>{title}</h2><p>{children}</p></div>; }

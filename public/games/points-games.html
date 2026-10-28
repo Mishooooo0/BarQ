@@ -3,7 +3,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>تحديات النقاط</title>
 <script>
-// Embedded in the light-only barq demo: pin the light theme before first paint so there's no dark flash.
+// Embedded in the light-only barq app: pin the light theme before first paint so there's no dark flash.
 if(new URLSearchParams(location.search).has('embed')) document.documentElement.dataset.theme = 'light';
 </script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
@@ -626,7 +626,7 @@ function show(g){
 }
 const TITLES = { hub:'مركز الألعاب', stack:'تحدي البناء', react:'رد الفعل', aim:'تحدي الدقة', num:'ترتيب الأرقام', fly:'رحلة الطيران' };
 document.querySelectorAll('.tab, .game-row').forEach(b => b.addEventListener('click', () => show(b.dataset.game)));
-// Embedded in the barq demo (?embed): the app supplies the tab bar, and back from the hub returns to the app.
+// Embedded in the barq app (?embed): the app supplies the tab bar, and back from the hub returns to the app.
 const EMBED = new URLSearchParams(location.search).has('embed');
 document.documentElement.classList.toggle('embed', EMBED);
 $('back').addEventListener('click', () => {

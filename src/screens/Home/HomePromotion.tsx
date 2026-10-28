@@ -4,7 +4,7 @@ import { useSheet } from '../../hooks/useSheet';
 export function HomePromotion() {
   const { open } = useSheet();
   return <div className="home-promotions">
-    <button className="latest-promo" aria-label="barq Marathon — click to see your demo ranking" onClick={() => open('promotion')}>
+    <button className="latest-promo" aria-label="barq Marathon — click to see your ranking" onClick={() => open('promotion')}>
       <Artwork source="homePromotion" region={[55, 745, 478, 259]} />
     </button>
     {/* Only the first campaign was supplied. Preserve reference pagination without inventing unseen campaigns. */}

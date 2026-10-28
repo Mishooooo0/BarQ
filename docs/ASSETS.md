@@ -34,3 +34,7 @@ Generated with the built-in image generation tool, using the supplied Home scree
 - The lower Home promotion uses the complete campaign artwork from the follow-up screenshot. Its surrounding heading, spacing, click target and pagination indicators are React/CSS.
 
 No runtime image/font CDN, external banking endpoint or analytics service is used.
+
+## AI Analyst character
+
+`src/assets/analyst/*.png` are eleven poses cropped, unscaled, from the pixel-art character sheet supplied by the project owner on 2026-10-28 (hero, thumbs, think, idea, celebrate, coin, laptop, receipt, places, piggy, growth). They are shown with `image-rendering: pixelated`.

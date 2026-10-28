@@ -75,3 +75,13 @@ Tool: Codex — Developer: Codex
 **Open items:** Browser state remains in-memory demo state. The server is running on this machine and is not a managed deployment.
 
 Tool: Codex — Developer: Codex
+
+## 2026-10-28 19:26 (Asia/Riyadh)
+
+**Update:** Merged `origin/Alsehli` (new UI, flying camel game) into `Meshal` after fast-forwarding to `origin/Meshal`; resolved conflicts by keeping the Places route and taking Alsehli's newer games page, mascot tile and styles. Built the backend from `Plan.md`: a Users database with the five accounts (Abdullah M, Abdullah S, Meshal, Sultana, Rasel), name + 4-digit PIN sign-in (scrypt hashes, signed tokens, lockout), balances and 60 days of categorised spending each, and friend groups; a Games database with Flappy Bird and who-pays-the-bill sessions (random order, highest points pays, bill charged to the payer); the Places and Categories database with the 7 templates. Added the AI Analyst (`server/analyst.mjs`, `src/screens/Analyst/`) using the supplied pixel character: insights, overspending and subscription alerts, a daily plan from a wallet-limited budget slider, and a group hangout plan built on the smallest budget without revealing anyone's numbers. Wired the UI to the API (sign-in, live balance and history, top-ups, transfers between users, checkout, salary, cashback). Removed all "Demo" naming from the app. To stop the UI breaking when the backend changes: the API now runs inside the Vite dev server with per-request module reload, all calls go through one client with timeouts and readable errors, screens show retry states, an error boundary wraps routes, and `npm start` rebuilds before serving. Live databases are in `data/db/` (git-ignored) and are created from `server/seed.mjs` on first run.
+
+**Validation:** `npm run build` passed (strict TypeScript). 14 backend tests passed (`npm test`). 17 Playwright browser tests passed (`npm run test:e2e`), including sign-in, persisted balances, transfers between accounts, the Analyst slider and plans, a simulated API outage, and a check that no "Demo" text remains. Manually confirmed that a syntax error in a backend file shows an error state in the UI and recovers on retry without a restart. Production server checked on a spare port: `/`, `/analyst`, `/rewards/wheel` and `/api/health` returned 200.
+
+**Open items:** The Points Challenges games do not yet report scores to game sessions; the Games database holds one game (Flappy Bird) as planned. The Analyst is rule-based and does not call a language model. Cards, Market products and rewards progress are still local UI state. The Alsehli merge is committed on `Meshal`; the backend and UI changes are not committed or pushed yet.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

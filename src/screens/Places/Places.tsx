@@ -1,24 +1,28 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { PageHeader } from '../../components/ui/Primitives';
-
-type Place = { record_id: string; name: string; general_category: string; address: string; rating: number | null; rating_scale: number | null; price_category_ar: string | null };
-type Category = { name: string; count: number };
+import { useCallback, useEffect, useState } from 'react';
+import { DetailHeader, ErrorState } from '../../components/ui/Primitives';
+import { api, errorMessage, isAbort } from '../../lib/api';
+import type { CategoryTemplate, PlaceRecord } from '../../types/api';
 
 export function Places() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryTemplate[]>([]);
   const [category, setCategory] = useState('');
   const [query, setQuery] = useState('');
-  const [places, setPlaces] = useState<Place[]>([]);
+  const [places, setPlaces] = useState<PlaceRecord[] | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => { fetch('/api/categories').then(r => { if (!r.ok) throw Error(); return r.json(); }).then(setCategories).catch(() => setError('Places service is unavailable.')); }, []);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => { setError(''); setAttempt(n => n + 1); }, []);
+  useEffect(() => { api<CategoryTemplate[]>('/api/categories').then(setCategories).catch(e => setError(errorMessage(e))); }, [attempt]);
   useEffect(() => {
     const controller = new AbortController();
     const params = new URLSearchParams({ limit: '100' });
     if (category) params.set('category', category);
     if (query.trim()) params.set('q', query.trim());
-    fetch(`/api/places?${params}`, { signal: controller.signal }).then(r => { if (!r.ok) throw Error(); return r.json(); }).then(data => { setPlaces(data.items); setError(''); }).catch(err => { if (err.name !== 'AbortError') setError('Places service is unavailable.'); });
-    return () => controller.abort();
-  }, [category, query]);
-  return <><PageHeader title="Places"><Link to="/more">Back</Link></PageHeader><div className="detail-content"><label>Search Riyadh places<input aria-label="Search Riyadh places" value={query} onChange={e => setQuery(e.target.value)} /></label><label>Category<select aria-label="Place category" value={category} onChange={e => setCategory(e.target.value)}><option value="">All categories</option>{categories.map(c => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}</select></label>{error && <p role="alert">{error} Start the API with npm run api.</p>}{places.map(p => <article key={p.record_id} className="product-row"><div><h3>{p.name}</h3><p>{p.general_category} · {p.address}</p><p>{p.price_category_ar || 'Price unknown'}{p.rating != null ? ` · ${p.rating}/${p.rating_scale}` : ''}</p></div></article>)}</div></>;
+    const timer = setTimeout(() => {
+      api<{ items: PlaceRecord[] }>(`/api/places?${params}`, { signal: controller.signal }).then(data => { setPlaces(data.items); setError(''); }).catch(e => { if (!isAbort(e) && !controller.signal.aborted) setError(errorMessage(e)); });
+    }, query ? 200 : 0);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [category, query, attempt]);
+  return <><DetailHeader title="Places" fallback="/more" /><div className="detail-content places-content"><label className="field-label">Search Riyadh places<input aria-label="Search Riyadh places" value={query} onChange={e => setQuery(e.target.value)} /></label><label className="field-label">Category<select aria-label="Place category" value={category} onChange={e => setCategory(e.target.value)}><option value="">All categories</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name} ({c.count})</option>)}</select></label>
+    {error ? <ErrorState message={error} onRetry={retry} /> : places === null ? <p className="muted" role="status">Loading places…</p> : !places.length ? <p className="muted">No places match your search.</p>
+      : places.map(p => <article key={p.record_id} className="product-row"><div><h3>{p.name}</h3><p>{categories.find(c => c.id === p.categoryId)?.name ?? p.general_category} · {p.address}</p><p>{p.price_category_ar ?? `About SAR ${p.estimatedCost}`}{p.rating5 != null ? ` · ★ ${p.rating5.toFixed(1)}` : ''}</p></div></article>)}</div></>;
 }
