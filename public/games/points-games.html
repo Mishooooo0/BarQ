@@ -629,6 +629,10 @@ document.querySelectorAll('.tab, .game-row').forEach(b => b.addEventListener('cl
 // Embedded in the barq app (?embed): the app supplies the tab bar, and back from the hub returns to the app.
 const EMBED = new URLSearchParams(location.search).has('embed');
 document.documentElement.classList.toggle('embed', EMBED);
+// Hangout "who pays" games (?play=fly&report): open the game directly and send the final score to the app once.
+const PLAY = new URLSearchParams(location.search).get('play');
+const REPORT = new URLSearchParams(location.search).has('report');
+let reported = false;
 $('back').addEventListener('click', () => {
   if(active === 'hub' && EMBED) parent.postMessage({ type:'points-games:close' }, location.origin);
   else show('hub');
@@ -1374,6 +1378,7 @@ function flPanel(html){
 }
 function flOver(){
   fl.state = 'over';
+  if(REPORT && !reported){ reported = true; parent.postMessage({ type:'points-games:score', game:'fly', score:fl.score }, location.origin); }
   fl.newBest = fl.score > fl.best;
   const m = flMeters();
   if(fl.newBest) fl.best = fl.score;
@@ -1725,5 +1730,5 @@ rxDots();
 amDraw();
 skUpdate();
 nmStats();
-show('hub');
+show(PLAY && panels[PLAY] ? PLAY : 'hub');
 </script>

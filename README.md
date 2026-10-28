@@ -1,6 +1,6 @@
 # BarQ
 
-A mobile banking app prototype with a JavaScript backend: five mock accounts, 60 days of spending each, a Places database, a games database for "who pays the bill", and an AI Analyst. The interface is an independent reconstruction of barq screenshots. **This is not an official barq application and is not affiliated with or endorsed by barq.** All accounts, balances and transactions are mock data; no real money moves.
+A mobile banking app prototype with a JavaScript backend: five accounts that start empty, a Places database, a games database for "who pays the bill", a Payments database, and an AI Analyst powered by Claude. The interface is an independent reconstruction of barq screenshots. **This is not an official barq application and is not affiliated with or endorsed by barq.** All accounts, balances and transactions are mock data; no real money moves.
 
 ## Run locally
 
@@ -18,14 +18,30 @@ Open http://127.0.0.1:5173/. `npm run dev` runs the UI **and** the API in one pr
 | `npm run dev` | UI + API with hot reload (port 5173) |
 | `npm start` | Builds, then serves the built UI + API from one Node process on port 5352 (`PORT`, `HOST` override) |
 | `npm run api` | API only on port 3001 |
-| `npm run db:reset` | Recreates the Users and Games databases from the seed |
+| `npm run db:reset` | Recreates the Users, Games and Payments databases from the seed |
 | `npm test` | Backend tests (Node test runner, temporary database) |
 | `npm run test:e2e` | Browser tests (Playwright + Chrome, separate database in `test-results/e2e-db`) |
 | `npm run build` | Strict TypeScript check and production build in `dist/` |
 
+## Connecting the AI Analyst to Claude
+
+The analyst calls Claude through the **Claude-Dev** endpoint (the same one The Ring's `claude-dev` profile uses). The server reads these environment variables; the key is never written to the repo:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CLAUDE_DEV_KEY` | (required) | API key for the endpoint |
+| `CLAUDE_DEV_BASE_URL` | `https://claudeapikey.dev` | Endpoint base URL |
+| `CLAUDE_DEV_MODEL` | `claude-haiku-4-5` | Model name |
+
+Set the key once in your Windows user environment, then open a new terminal so the server inherits it. `GET /api/health` shows `ai.configured` (never the key). Without a key the facts still load, and the plans and tips explain how to connect.
+
+That endpoint ignores the API's structured-output option and replaces client tools with its own, so the server asks for JSON in the prompt and validates every answer. Place ids must exist in the Places database, prices come from the database rather than from Claude, totals are kept within the budget, and an unusable answer is retried once. Calls are queued one at a time because the account allows one request at a time.
+
 ## Accounts
 
-Sign in by choosing a name and entering its 4-digit PIN. The five accounts from `Plan.md` are **Abdullah M, Abdullah S, Meshal, Sultana and Rasel**. Their test PINs, starting balances and spending habits are defined in [`server/seed.mjs`](server/seed.mjs) (`SEED_ACCOUNTS`). Change them there and run `npm run db:reset`.
+Sign in by choosing a name and entering its 4-digit PIN. The five accounts from `Plan.md` are **Abdullah M, Abdullah S, Meshal, Sultana and Rasel**. Their test PINs are defined in [`server/seed.mjs`](server/seed.mjs) (`SEED_ACCOUNTS`). Change them there and run `npm run db:reset`.
+
+There is no mock data: every account starts with a zero balance, zero savings and cashback, no transactions and no budgets. Add money from Home to start; everything after that is real activity stored in the databases.
 
 PINs are stored as salted scrypt hashes. A session is a signed token that lasts 7 days and survives server restarts. Five wrong PINs lock an account for 30 seconds.
 
@@ -33,11 +49,14 @@ PINs are stored as salted scrypt hashes. A session is a signed token that lasts 
 
 | Database | Where | Contents |
 | --- | --- | --- |
-| Users | `data/db/users.json` (created on first run, not committed) | 5 users: name, PIN hash, balance, savings, cashback, hangout budget, and 60 days of transactions (seller, category, amount, date). Groups of friends. |
-| Games | `data/db/games.json` (created on first run, not committed) | One game for now, **Flappy Bird** (the flying game in Points Challenges), plus game sessions |
+| Users | `data/db/users.json` (created on first run, not committed) | 5 users: name, PIN hash, balance, savings, cashback, hangout budget and transactions (seller, category, amount, date), all starting empty. Groups of friends. |
+| Games | `data/db/games.json` (created on first run, not committed) | One game for now, **Flappy Bird** (the flying game in Points Challenges), game sessions, and hangouts with their "who pays?" votes |
+| Payments | `data/db/payments.json` (created on first run, not committed) | Purchases made from Market → Pay at places, stored as **name, price, category, date** (plus id, user, place id and the wallet transaction id) |
 | Places & Categories | `data/categories.json`, `data/riyadh_all_seven_categories_v2.jsonl` (committed, read-only) | 7 category templates (Food, Cafe, Health, Shopping, Groceries, Transportation, Entertainment) and 208 Riyadh places |
 
-The spending history is generated deterministically and always ends on the day the database is created. The directory (`GET /api/users`) is open; anything under `/api/me` needs a session.
+All five users are in the **BarQ Developers** group. Older databases get the group and the Payments file added automatically on start.
+
+The directory (`GET /api/users`) is open; anything under `/api/me` needs a session.
 
 ## API
 
@@ -52,7 +71,12 @@ The spending history is generated deterministically and always ends on the day t
 | `POST /api/me/transactions` `{ kind: topup\|purchase\|cashback, amount, seller, category }` | Changes the stored balance |
 | `POST /api/transfers` `{ to, amount, channel }` | Moves money between two accounts |
 | `PUT /api/me/budget` `{ amount }` · `GET /api/me/groups` | Hangout budget and friend groups |
-| `GET /api/analyst/insights` · `POST /api/analyst/daily` `{ budget }` · `POST /api/analyst/hangout` `{ budget, groupId }` | AI Analyst |
+| `POST /api/groups/:id/members` `{ userId }` | Add a registered user to a group (members only) |
+| `GET /api/analyst/insights` | Spending facts computed from your history (instant) |
+| `GET /api/analyst/advice` · `POST /api/analyst/daily` `{ budget }` · `POST /api/analyst/hangout` `{ budget, groupId }` | Claude's headline and tips, daily plan, hangout plan |
+| `GET /api/hangouts?groupId=` · `POST /api/hangouts` `{ groupId, items }` | Group hangouts and their votes; start a vote from a planned hangout |
+| `POST /api/hangouts/:id/vote` `{ choice: split\|own\|pay }` · `POST /api/hangouts/:id/close` · `POST /api/hangouts/:id/pay` | Vote, end the vote early (starter only), pay your part |
+| `GET /api/payments` · `POST /api/payments` `{ placeId, date }` | Your payments; pay at a place on a date (`YYYY-MM-DD`, today or up to a year back) |
 | `GET /api/games` · `POST /api/game-sessions` · `GET /api/game-sessions/:id` · `POST /api/game-sessions/:id/scores` · `POST /api/game-sessions/:id/settle` | Who-pays-the-bill games |
 
 Send the token as `Authorization: Bearer <token>`. Errors are always JSON: `{ "error": "message" }`.
@@ -61,11 +85,28 @@ Send the token as `Authorization: Bearer <token>`. Errors are always JSON: `{ "e
 
 Open it from the card on Home or from More → Explore. The character is the pixel-art analyst from the supplied character sheet (`src/assets/analyst/`), and his pose changes with what he is saying.
 
-- **Insights:** today, week and 30-day spending; suggested daily, weekly and monthly budgets; how long the balance lasts; overspending alerts by category; upcoming subscription renewals; spending by category.
-- **Daily plan:** choose a budget with the slider, from SAR 0 up to what is in your wallet. The analyst builds a day (rides, coffee, lunch, outing, dinner) from Riyadh places that fit, weighted by your own habits, and shows what stays in your wallet.
-- **Hangout:** choose a group and your budget. The plan uses the **smallest** budget in the group so nobody is put on the spot. Other members' budgets and balances are never shown.
+- **Insights:** today, week and 30-day spending; suggested daily, weekly and monthly budgets; how long the balance lasts; overspending alerts by category; upcoming subscription renewals; spending by category. These are computed from your data and load instantly. Claude then writes the headline and tips.
+- **Daily plan:** choose a budget with the slider, from SAR 0 up to what is in your wallet. Claude builds the day from Riyadh places that fit, weighted by your own habits, and shows what stays in your wallet.
+- **Hangout:** choose a group and your budget, and add people to the group. The plan uses the **smallest** budget in the group so nobody is put on the spot. Only that smallest budget is sent to Claude; other members' budgets and balances are never shown or sent.
 
-The analyst runs on deterministic rules in [`server/analyst.mjs`](server/analyst.mjs). It works offline and gives the same answer for the same data. It does not call a language model.
+Facts and candidate places are computed in [`server/analyst.mjs`](server/analyst.mjs); the Claude client is [`server/claude.mjs`](server/claude.mjs). Tests use a local stand-in (`tests/fake-claude.mjs`) and never call the real endpoint.
+
+## Who's paying? (hangout votes)
+
+After the analyst plans a hangout, tap **Ask the group: who's paying?**. Every member of the group votes from their own phone (Analyst → Hangout) for one of three choices: **Split the bill**, **Everyone pays their own**, or **I will pay it**. Votes stay hidden until the vote ends, which happens when everyone has voted or when the person who started it ends it early.
+
+| Votes | Result |
+| --- | --- |
+| Exactly one "I will pay it" (e.g. 3 split, 1 I will pay) | That person pays the whole bill |
+| Two or more "I will pay it" | Those people play Flappy Bird on one phone, one after another; the highest score pays |
+| Nobody volunteers | Split or own, whichever has more votes |
+| Nobody volunteers and split ties with own | Everyone pays their own |
+
+The bill is the plan's per-person cost times the group size, priced from the Places database. Whoever owes taps **Pay**: the payer pays the whole bill, or each member pays their share. Each payment is charged to the wallet and saved in the Payments database. The rules are in [`server/hangouts.mjs`](server/hangouts.mjs).
+
+## Market → Pay at places
+
+Open **Market → Pay at places** to buy from any of the 208 places in the Categories database. Filter by the 7 categories or search, pick a place, change the payment date if you need to (today or up to a year back), and pay. The price is the place's estimated cost per person. The wallet is charged, the transaction appears in your history on that date, and the record is saved in the Payments database as name, price, category and date. Your payments are listed on the same screen.
 
 ## Game system
 
@@ -80,8 +121,10 @@ server/
   db.mjs         File-backed JSON databases with atomic writes
   seed.mjs       The five accounts, groups, games and 60-day spending generator
   auth.mjs       PIN hashing, signed session tokens, lockout
-  analyst.mjs    AI Analyst: insights, daily plan, hangout plan
+  analyst.mjs    AI Analyst: facts, candidate places, validation of Claude's plans
+  claude.mjs     Claude-Dev client: JSON prompting, retries, one request at a time
   games.mjs      Game sessions and bill payer
+  hangouts.mjs   "Who pays?" vote rules and who owes what
   places.mjs     Places and Categories database
 src/
   app/           Router shell, SessionProvider (sign-in), WalletProvider (balance and history from the API)

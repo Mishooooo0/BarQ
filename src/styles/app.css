@@ -419,3 +419,61 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); min-height: ca
 .tip-list { padding-left: 18px; font-size: 12px; line-height: 19px; color: #333; }
 .tip-list li { margin-bottom: 6px; }
 .places-content .product-row { margin-bottom: 10px; }
+
+/* Market → Pay at places */
+.pay-places-card { display: flex; align-items: center; gap: 12px; background: white; border-radius: var(--tile-radius); padding: 14px 16px; margin-bottom: 18px; }
+.pay-places-card div { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.pay-places-card strong { font-size: 15px; font-weight: 800; }
+.pay-places-card span:not(.service-icon) { font-size: 11px; color: var(--muted); }
+.pay-search { margin: 4px 0 14px; }
+.pay-list { display: flex; flex-direction: column; gap: 8px; }
+.pay-row { width: 100%; text-align: left; justify-content: space-between; }
+.pay-row div { min-width: 0; }
+.pay-row h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pay-row p { display: flex; align-items: center; gap: 3px; }
+.pay-row .money { font-size: 13px; font-weight: 750; flex-shrink: 0; }
+.pay-summary { text-align: center; }
+.pay-price .money { display: block; font-size: 28px; font-weight: 800; margin-top: 10px; }
+.receipt-table { margin: 14px 0 4px; text-align: left; background: white; border-radius: 12px; padding: 4px 14px; }
+.receipt-table div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #eef0ee; font-size: 12px; }
+.receipt-table div:last-child { border-bottom: 0; }
+.receipt-table dt { color: var(--muted); }
+.receipt-table dd { font-weight: 700; text-align: right; }
+.payments-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; font-size: 11px; }
+.payments-table th, .payments-table td { padding: 9px 8px; text-align: left; border-bottom: 1px solid #f0f0f3; }
+.payments-table th { color: var(--muted); font-weight: 650; }
+.payments-table td:last-child, .payments-table th:last-child { text-align: right; white-space: nowrap; }
+.add-member { display: flex; gap: 8px; margin: -4px 0 12px; }
+.add-member select { flex: 1; min-width: 0; border: 1px solid #dddddf; border-radius: 12px; padding: 10px; background: white; font-size: 13px; }
+.add-member .secondary-button { width: auto; margin: 0; min-height: 42px; padding: 8px 14px; }
+
+/* Hangout "who pays?" votes and game */
+.hangout-list { display: flex; flex-direction: column; gap: 12px; }
+.hangout-card { background: white; border-radius: 16px; padding: 14px; }
+.hangout-card header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.hangout-card header strong { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+.hangout-status { font-size: 10px; font-weight: 750; padding: 3px 8px; border-radius: 10px; background: #eef4ff; color: #1f6fe5; }
+.hangout-status.decided { background: #fff6e0; color: #a86c00; }
+.hangout-status.settled { background: #e7f3eb; color: #307c61; }
+.hangout-plan { font-size: 11px; color: var(--muted); line-height: 17px; margin: 8px 0; }
+.hangout-money { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.hangout-money .money { font-weight: 750; color: #111; }
+.hangout-question { font-size: 13px; font-weight: 750; margin: 12px 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.hangout-question small { font-size: 10px; color: var(--muted); font-weight: 500; }
+.vote-options { display: flex; flex-direction: column; gap: 6px; }
+.vote-options button { min-height: 40px; border-radius: 12px; background: #f1f2f5; font-size: 12px; font-weight: 650; }
+.vote-options button[aria-pressed="true"] { background: #1f6fe5; color: white; }
+.vote-members { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.vote-members li { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 3px 8px; border-radius: 10px; background: #f1f2f5; color: var(--muted); }
+.vote-members li.voted { background: #e7f3eb; color: #307c61; }
+.hangout-result { font-size: 14px; font-weight: 800; margin: 12px 0 4px; }
+.dues-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.dues-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #f0f0f3; }
+.dues-list li:last-child { border-bottom: 0; }
+.dues-list small { font-size: 10px; color: var(--muted); }
+.hangout-card .primary-button { gap: 6px; }
+.score-board { list-style: none; padding: 0; margin: 14px 0; background: white; border-radius: 14px; }
+.score-board li { display: flex; justify-content: space-between; padding: 12px 14px; font-size: 13px; font-weight: 650; border-bottom: 1px solid #f0f0f3; }
+.score-board li:last-child { border-bottom: 0; }
+.score-board li.payer { background: #fff6e0; }
+.hangout-frame { display: block; width: 100%; height: 600px; border: 0; border-radius: 16px; background: #fbefe3; }

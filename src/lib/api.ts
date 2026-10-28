@@ -8,6 +8,8 @@ export class ApiError extends Error {
 
 const TOKEN_KEY = 'barq.session';
 const TIMEOUT_MS = 10_000;
+/** The AI Analyst waits on Claude, which can take a minute or more. */
+export const AI_TIMEOUT_MS = 150_000;
 
 export const tokenStore = {
   get(): string | null { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
@@ -22,9 +24,9 @@ export function onSessionExpired(listener: () => void) { listeners.add(listener)
 export function setToken(token: string | null) { memoryToken = token; if (token) tokenStore.set(token); else tokenStore.clear(); }
 export const currentToken = () => memoryToken ?? tokenStore.get();
 
-export async function api<T>(path: string, { method = 'GET', body, signal }: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
+export async function api<T>(path: string, { method = 'GET', body, signal, timeoutMs = TIMEOUT_MS }: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number } = {}): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')), timeoutMs);
   const forward = () => controller.abort(signal?.reason);
   signal?.addEventListener('abort', forward, { once: true });
   const token = currentToken();

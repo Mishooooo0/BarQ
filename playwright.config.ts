@@ -18,5 +18,9 @@ export default defineConfig({
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
   },
-  webServer: { command: `npm run dev -- --port ${port} --strictPort`, url: `http://127.0.0.1:${port}/api/health`, reuseExistingServer: false, env: { BARQ_DB_DIR: process.env.BARQ_DB_DIR } },
+  // The AI Analyst talks to a local stand-in for the Claude-Dev endpoint (tests/fake-claude.mjs), never the real one.
+  webServer: [
+    { command: 'node tests/fake-claude.mjs', url: 'http://127.0.0.1:5175/health', reuseExistingServer: false, env: { FAKE_CLAUDE_PORT: '5175' } },
+    { command: `npm run dev -- --port ${port} --strictPort`, url: `http://127.0.0.1:${port}/api/health`, reuseExistingServer: false, env: { BARQ_DB_DIR: process.env.BARQ_DB_DIR, CLAUDE_DEV_BASE_URL: 'http://127.0.0.1:5175', CLAUDE_DEV_KEY: 'test-key' } },
+  ],
 });

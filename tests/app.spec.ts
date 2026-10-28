@@ -1,4 +1,4 @@
-import { account, expect, signIn, test } from './fixtures';
+import { account, expect, fund, signIn, test } from './fixtures';
 const captureDir = process.env.BARQ_CAPTURE_DIR ?? 'test-results/visual';
 const balanceLabel = (value: number) => `Available balance ${value.toFixed(2)} Saudi riyals`;
 
@@ -12,10 +12,10 @@ test('sign-in rejects a wrong PIN and lists the five accounts', async ({ page })
   await expect(page.getByRole('alert')).toContainText('Name or PIN is incorrect');
   await page.getByLabel('4-digit PIN').fill(account('meshal').pin);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByLabel(balanceLabel(account('meshal').balance))).toBeVisible();
+  await expect(page.getByLabel(balanceLabel(0))).toBeVisible();
   await expect(page.getByText('MESHAL', { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel(balanceLabel(account('meshal').balance))).toBeVisible();
+  await expect(page.getByLabel(balanceLabel(0))).toBeVisible();
 });
 
 test('no Demo wording is left in the main screens', async ({ page }) => {
@@ -27,7 +27,7 @@ test('no Demo wording is left in the main screens', async ({ page }) => {
   }
 });
 
-test('lower Products tiles open working flows and salary uses the stored balance', async ({ page }) => {
+test('lower Products tiles open and show no sample records', async ({ page }) => {
   await signIn(page, 'rasel');
   await page.goto('/more');
   await page.evaluate(() => document.fonts.ready);
@@ -36,21 +36,16 @@ test('lower Products tiles open working flows and salary uses the stored balance
   await expect.poll(async () => (await page.locator('.more-phone .page-header').boundingBox())?.y).toBe(54);
   await page.screenshot({ path: `${captureDir}/more-lower.png` });
   await page.getByRole('button', { name: 'Youth Accounts', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('YOUTH-0001');
+  await expect(page.getByRole('dialog')).toContainText('No youth accounts yet');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Domestic Labor Salaries', exact: true }).click();
-  await page.getByRole('button', { name: 'Confirm salary payment' }).click();
-  await expect(page.getByRole('status')).toContainText('Salary paid');
-  await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Domestic Labor Salaries', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Confirm salary payment' })).toBeDisabled();
-  await expect(page.getByRole('alert')).toContainText('Not enough balance');
+  await expect(page.getByRole('dialog')).toContainText('No salary payees yet');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Offers', exact: true }).click();
   await page.getByRole('dialog').getByRole('link', { name: 'barq Marathon' }).click();
   await expect(page.getByRole('button', { name: 'Join the marathon' })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Home', exact: true }).click();
-  await expect(page.getByLabel(balanceLabel(account('rasel').balance - 850))).toBeVisible();
+  await expect(page.getByLabel(balanceLabel(0))).toBeVisible();
 });
 
 test('Home lower promotion preserves the supplied artwork and opens the ranking', async ({ page }) => {
@@ -96,7 +91,7 @@ test('all bottom tabs navigate and More scrolls above the fixed navigation', asy
 
 test('balance visibility, validated top-up and transaction history stay consistent', async ({ page }) => {
   await signIn(page);
-  const start = account('meshal').balance;
+  const start = 0;
   await page.getByRole('button', { name: 'Hide balance' }).click();
   await expect(page.getByLabel('Balance hidden', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Show balance' }).click();
@@ -133,6 +128,7 @@ test('card freezing survives navigation and no credentials are requested', async
 });
 
 test('market search, favorites and checkout charge the stored wallet', async ({ page }) => {
+  fund('meshal', 200);
   await signIn(page);
   await page.goto('/market');
   await page.getByRole('textbox', { name: 'Search market' }).fill('Xbox');
@@ -146,7 +142,7 @@ test('market search, favorites and checkout charge the stored wallet', async ({ 
   await page.getByRole('button', { name: 'Complete order' }).click();
   await expect(page.getByRole('heading', { name: 'Order complete' })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Home', exact: true }).click();
-  await expect(page.getByLabel(balanceLabel(account('meshal').balance - 50))).toBeVisible();
+  await expect(page.getByLabel(balanceLabel(150))).toBeVisible();
 });
 
 test('wheel credits cashback once, quests complete and marathon entry is simulated', async ({ page }) => {
@@ -157,7 +153,7 @@ test('wheel credits cashback once, quests complete and marathon entry is simulat
   await expect(page.getByText('You won SAR 5 in cashback!')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Spin used' })).toBeDisabled();
   await page.getByRole('navigation').getByRole('link', { name: 'Rewards', exact: true }).click();
-  await expect(page.locator('.cashback-summary')).toContainText('162.44');
+  await expect(page.locator('.cashback-summary')).toContainText('5.00');
   await page.getByRole('link', { name: /Quests/ }).click();
   await page.getByRole('link', { name: 'Explore', exact: false }).first().click();
   await page.goBack();
@@ -169,8 +165,9 @@ test('wheel credits cashback once, quests complete and marathon entry is simulat
 });
 
 test('transfer rejects overspending, requires review and credits the other account', async ({ page }) => {
+  fund('meshal', 100);
   await signIn(page);
-  const start = account('meshal').balance;
+  const start = 100;
   await page.goto('/more');
   await page.getByRole('button', { name: 'Transfer to barq wallet' }).click();
   await page.getByLabel('Recipient').selectOption({ label: 'Sultana' });
@@ -189,7 +186,7 @@ test('transfer rejects overspending, requires review and credits the other accou
   await page.getByRole('button', { name: 'Sultana', exact: true }).click();
   await page.getByLabel('4-digit PIN').fill(account('sultana').pin);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByLabel(balanceLabel(account('sultana').balance + 20))).toBeVisible();
+  await expect(page.getByLabel(balanceLabel(20))).toBeVisible();
 });
 
 test('dialog traps focus and browser Back closes it', async ({ page }) => {

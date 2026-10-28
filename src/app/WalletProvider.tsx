@@ -4,7 +4,7 @@ import { products } from '../data/mock';
 import { toTransaction } from '../lib/format';
 import { useSession, useUser } from './SessionProvider';
 import type { CardId, CartLine, Transaction } from '../types';
-import type { CategoryId, DirectoryEntry, ServerTransaction, User } from '../types/api';
+import type { CategoryId, DirectoryEntry, Payment, ServerTransaction, User } from '../types/api';
 
 // Balance, cashback and transactions live in the Users database. Cards, favorites, cart and rewards progress are
 // UI-only and reset when the account changes.
@@ -39,6 +39,8 @@ interface Wallet {
   cashbackReward: (amount: number, seller: string) => Promise<void>;
   transfer: (to: string, amount: number, channel: TransferChannel) => Promise<void>;
   checkout: () => Promise<void>;
+  /** Pays at a place from the Places database on a chosen date; saved in the Payments database. */
+  payAtPlace: (placeId: string, date: string) => Promise<Payment>;
 }
 const WalletContext = createContext<Wallet | null>(null);
 
@@ -79,7 +81,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       await post({ kind: 'purchase', amount: total, seller: 'barq Market order', category: 'shopping' });
       dispatch({ type: 'clear-cart' });
     },
-  }), [local, user, transactions, directory, history, refresh, post, apply]);
+    payAtPlace: async (placeId, date) => {
+      const result = await api<{ payment: Payment; user: User }>('/api/payments', { method: 'POST', body: { placeId, date } });
+      setUser(result.user);
+      void refresh(); // a back-dated payment lands in the middle of the history, so reload it in order
+      return result.payment;
+    },
+  }), [local, user, transactions, directory, history, refresh, post, apply, setUser]);
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 

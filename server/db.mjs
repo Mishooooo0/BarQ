@@ -1,11 +1,11 @@
-// File-backed JSON databases (Users, Games). Every read comes from disk and every write is atomic, so the dev
+// File-backed JSON databases (Users, Games, Payments). Every read comes from disk and every write is atomic, so the dev
 // server, the production server and the tests can all share one data directory without stale caches.
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { dbDir } from './paths.mjs';
-import { buildSeed } from './seed.mjs';
+import { buildSeed, DEVELOPERS_GROUP } from './seed.mjs';
 
-const files = { users: 'users.json', games: 'games.json' };
+const files = { users: 'users.json', games: 'games.json', payments: 'payments.json' };
 const fileFor = name => path.join(dbDir(), files[name]);
 
 function writeJson(file, data) {
@@ -24,10 +24,25 @@ function writeJson(file, data) {
 export function ensureDb({ reset = false, now = new Date() } = {}) {
   mkdirSync(dbDir(), { recursive: true });
   const missing = Object.keys(files).filter(name => reset || !existsSync(fileFor(name)));
-  if (!missing.length) return [];
-  const seed = buildSeed(now);
-  for (const name of missing) writeJson(fileFor(name), seed[name]);
+  if (missing.length) {
+    const seed = buildSeed(now);
+    for (const name of missing) writeJson(fileFor(name), seed[name]);
+  }
+  migrate();
   return missing;
+}
+
+// Upgrades databases created by older versions in place. Runs once per data directory per process.
+const migrated = new Set();
+function migrate() {
+  if (migrated.has(dbDir())) return;
+  let users;
+  try { users = JSON.parse(readFileSync(fileFor('users'), 'utf8')); } catch { return; } // read() reports an unreadable file
+  if (!users.groups.some(g => g.id === DEVELOPERS_GROUP.id)) {
+    users.groups.unshift({ ...DEVELOPERS_GROUP, members: users.users.map(u => u.id) });
+    writeJson(fileFor('users'), users);
+  }
+  migrated.add(dbDir());
 }
 
 export function read(name) {

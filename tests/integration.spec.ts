@@ -1,4 +1,4 @@
-import { expect, signIn, test } from './fixtures';
+import { addGroup, apiToken, expect, fund, signIn, test } from './fixtures';
 
 test('places dataset is reachable through the UI', async ({ page }) => {
   await signIn(page);
@@ -17,11 +17,11 @@ test('points challenges opens from Products', async ({ page }) => {
 });
 
 test('AI Analyst shows insights, plans a day from the wallet slider and plans a hangout', async ({ page }) => {
+  fund('meshal', 1860.4);
   await signIn(page);
   await page.getByRole('link', { name: /AI Analyst/ }).click();
-  await expect(page.getByRole('heading', { name: 'AI Analyst' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AI Analyst', exact: true })).toBeVisible();
   await expect(page.getByText('Suggested budgets')).toBeVisible();
-  await expect(page.getByText('Upcoming subscriptions')).toBeVisible();
   await page.getByRole('tab', { name: 'Daily plan' }).click();
   const slider = page.getByRole('slider', { name: "Today's budget" });
   const max = Number(await slider.getAttribute('max'));
@@ -31,10 +31,10 @@ test('AI Analyst shows insights, plans a day from the wallet slider and plans a 
   await expect(page.locator('.plan-item').first()).toBeVisible();
   await expect(page.locator('.analyst-bubble')).toContainText('SAR 150');
   await page.getByRole('tab', { name: 'Hangout' }).click();
-  await page.getByRole('radio', { name: /The Shilla/ }).click();
-  await page.getByRole('slider', { name: 'Your hangout budget' }).fill('300');
+  await page.getByRole('radio', { name: /BarQ Developers/ }).click();
+  await page.getByRole('slider', { name: 'Your hangout budget' }).fill('120');
   await page.getByRole('button', { name: 'Plan the hangout' }).click();
-  await expect(page.locator('.per-person')).toContainText('80.00');
+  await expect(page.locator('.per-person')).toContainText('120.00');
   await expect(page.locator('.plan-item').first()).toBeVisible();
 });
 
@@ -50,5 +50,134 @@ test('a failing backend shows an error state instead of breaking the app', async
   await page.getByRole('navigation').getByRole('link', { name: 'Home', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   await page.getByRole('link', { name: 'Transactions', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Transactions' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Transactions', exact: true })).toBeVisible();
+});
+
+test('Claude advice appears in the Analyst bubble and tips', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/analyst');
+  await expect(page.locator('.analyst-bubble')).toHaveText('Fake advice for Meshal');
+  await expect(page.locator('.tip-list li')).toHaveCount(2);
+});
+
+test('a member can add someone to a group from the Hangout tab', async ({ page }) => {
+  addGroup('weekend', 'Weekend crew', ['meshal', 'abdullah-m']);
+  await signIn(page);
+  await page.goto('/analyst');
+  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.getByRole('radio', { name: /Weekend crew/ }).click();
+  await page.getByLabel('Add someone to Weekend crew').selectOption({ label: 'Sultana' });
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Sultana joined Weekend crew');
+  await expect(page.getByRole('list', { name: 'Members' })).toContainText('Sultana');
+  await page.getByRole('radio', { name: /BarQ Developers/ }).click();
+  await expect(page.getByRole('list', { name: 'Members' }).getByRole('listitem')).toHaveCount(5);
+});
+
+test('Market pay at places saves a back-dated payment and charges the wallet', async ({ page }) => {
+  fund('meshal', 500);
+  await signIn(page);
+  const start = 500;
+  await page.goto('/market');
+  await page.getByRole('link', { name: /Pay at places/ }).click();
+  await expect(page.locator('.pay-row')).toHaveCount(208);
+  await page.getByRole('radio', { name: 'Groceries' }).click();
+  await expect(page.locator('.pay-row')).toHaveCount(10);
+  const row = page.locator('.pay-row').first();
+  const name = (await row.locator('h3').innerText()).trim();
+  await row.click();
+  const today = new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
+  const lastMonth = new Date(Date.now() + 3 * 3_600_000 - 30 * 86_400_000).toISOString().slice(0, 10);
+  await page.getByLabel('Payment date').fill('2099-01-01');
+  await expect(page.getByRole('alert')).toContainText("can't be in the future");
+  await page.getByLabel('Payment date').fill(lastMonth);
+  await page.getByRole('button', { name: /^Pay/ }).click();
+  const record = page.locator('.receipt-table');
+  await expect(record).toContainText(name);
+  await expect(record).toContainText('Groceries');
+  await expect(record).toContainText(lastMonth);
+  await expect(record).toContainText('120.00');
+  await page.getByRole('button', { name: 'Choose another place' }).click();
+  await expect(page.locator('.payments-table tbody tr')).toHaveCount(1);
+  await page.getByRole('navigation').getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(page.getByLabel(`Available balance ${(start - 120).toFixed(2)} Saudi riyals`)).toBeVisible();
+  expect(today > lastMonth).toBe(true);
+});
+
+async function planAndAsk(page: import('@playwright/test').Page) {
+  await page.goto('/analyst');
+  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await page.getByRole('slider', { name: 'Your hangout budget' }).fill('100');
+  await page.getByRole('button', { name: 'Plan the hangout' }).click();
+  await expect(page.locator('.plan-item').first()).toBeVisible();
+  await page.getByRole('button', { name: "Ask the group: who's paying?" }).click();
+  await expect(page.locator('.hangout-card')).toHaveCount(1);
+  return page.locator('.hangout-card').first();
+}
+async function voteAs(page: import('@playwright/test').Page, id: string, choice: 'split' | 'own' | 'pay') {
+  const token = await apiToken(page, id);
+  const list = await (await page.request.get('/api/hangouts', { headers: { authorization: `Bearer ${token}` } })).json();
+  const res = await page.request.post(`/api/hangouts/${list[0].id}/vote`, { headers: { authorization: `Bearer ${token}` }, data: { choice } });
+  expect(res.status()).toBe(200);
+}
+
+test('who pays: one "I will pay it" wins and that person pays the bill', async ({ page }) => {
+  fund('meshal', 1000);
+  await signIn(page);
+  const card = await planAndAsk(page);
+  await expect(card).toContainText('0 of 5 voted');
+  await card.getByRole('button', { name: 'I will pay it' }).click();
+  await expect(card).toContainText('1 of 5 voted');
+  for (const id of ['abdullah-m', 'abdullah-s', 'sultana']) await voteAs(page, id, 'split');
+  await voteAs(page, 'rasel', 'own');
+  await page.getByRole('tab', { name: 'Insights' }).click();
+  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await expect(card.locator('.hangout-result')).toHaveText('Meshal pays the bill');
+  await expect(card).toContainText('split 3 · own 1 · I will pay 1');
+  await card.getByRole('button', { name: /^Pay/ }).click();
+  await expect(card.locator('.hangout-status')).toHaveText('Paid');
+});
+
+test('who pays: two volunteers play Flappy Bird and the highest score pays', async ({ page }) => {
+  fund('meshal', 500);
+  await signIn(page);
+  const card = await planAndAsk(page);
+  await card.getByRole('button', { name: 'I will pay it' }).click();
+  await voteAs(page, 'sultana', 'pay');
+  for (const id of ['abdullah-m', 'abdullah-s']) await voteAs(page, id, 'split');
+  await voteAs(page, 'rasel', 'own');
+  await page.getByRole('tab', { name: 'Insights' }).click();
+  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await expect(card.locator('.hangout-result')).toHaveText('Meshal vs Sultana: the highest score pays');
+  await card.getByRole('link', { name: 'Play the game' }).click();
+  for (const [name, score] of [['Meshal', 3], ['Sultana', 8]] as const) {
+    await expect(page.getByRole('heading', { name: `${name}'s turn` })).toBeVisible();
+    await page.getByRole('button', { name: 'Start Flappy Bird' }).click();
+    const game = page.frameLocator('iframe[title="Flappy Bird"]');
+    await expect(game.locator('#g-fly')).toBeVisible();
+    // Playing the real game in a test is not practical, so the frame reports a finished flight the way the game does.
+    await page.frameLocator('iframe[title="Flappy Bird"]').locator('body').evaluate((_, points) => parent.postMessage({ type: 'points-games:score', game: 'fly', score: points }, location.origin), score);
+  }
+  await expect(page.getByRole('heading', { name: 'Sultana pays the bill' })).toBeVisible();
+  await page.getByRole('link', { name: 'Back to the hangout' }).click();
+  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await expect(page.locator('.hangout-card').first().locator('.hangout-result')).toHaveText('Sultana pays the bill');
+});
+
+test('who pays: a split/own tie ends as everyone pays their own', async ({ page }) => {
+  fund('meshal', 500);
+  await signIn(page);
+  const card = await planAndAsk(page);
+  await card.getByRole('button', { name: 'Split the bill' }).click();
+  await voteAs(page, 'abdullah-m', 'split');
+  await voteAs(page, 'abdullah-s', 'own');
+  await voteAs(page, 'sultana', 'own');
+  await page.getByRole('tab', { name: 'Insights' }).click();
+  await page.getByRole('tab', { name: 'Hangout' }).click();
+  await card.getByRole('button', { name: 'End the vote now' }).click();
+  await expect(card.locator('.hangout-result')).toHaveText('Everyone pays their own');
+  await expect(card.locator('.dues-list li')).toHaveCount(5);
+  await card.getByRole('button', { name: /^Pay/ }).click();
+  await expect(card.locator('.dues-list li').filter({ hasText: 'You' })).toContainText('Paid');
+  await expect(card.locator('.hangout-status')).toHaveText('Decided');
 });

@@ -85,3 +85,23 @@ Tool: Codex — Developer: Codex
 **Open items:** The Points Challenges games do not yet report scores to game sessions; the Games database holds one game (Flappy Bird) as planned. The Analyst is rule-based and does not call a language model. Cards, Market products and rewards progress are still local UI state. The Alsehli merge is committed on `Meshal`; the backend and UI changes are not committed or pushed yet.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 20:17 (Asia/Riyadh)
+
+**Update:** Connected the AI Analyst to Claude through the Claude-Dev endpoint used by The Ring (`https://claudeapikey.dev`, model `claude-haiku-4-5`, key from the `CLAUDE_DEV_KEY` environment variable, never stored in the repo). Added `@anthropic-ai/sdk` and `server/claude.mjs`. The endpoint ignores `output_config` and replaces client tools, so JSON is requested in the prompt and every answer is validated on the server (place ids must exist, prices come from the database, totals stay within budget, one retry). Removed the analyst's canned rule-based headlines, tips and plan picker; the computed spending facts remain and Claude writes the advice and chooses the plans. Added a fourth database, Payments (`data/db/payments.json`), and Market → Pay at places to buy from any of the 208 places in the Categories database with an editable date, saved as name, price, category and date. Added the "BarQ Developers" group with all five users (existing databases are migrated on start) and `POST /api/groups/:id/members` with an Add control in the Analyst's Hangout tab. Raised the places list limit to 250 so all 208 places can be listed.
+
+**Validation:** TypeScript build passed. 19 backend tests passed, using a local stand-in for Claude. 20 Playwright tests passed in three consecutive full runs; one earlier run had a single failure in the narrow-screen layout test that could not be reproduced in 8 repeats. Live check against the real endpoint: advice and a SAR 140 daily plan returned valid JSON in about 8 seconds, with database prices and a total within the budget.
+
+**Open items:** The Claude-Dev endpoint is a third-party proxy, not Anthropic's API; its latency has varied from seconds to over a minute in The Ring's tests. The Ring repository was read only and not changed. Not committed yet.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 20:35 (Asia/Riyadh)
+
+**Update:** Removed all mock data. Accounts now start with zero balance, savings and cashback, no transactions and no budgets; the 60-day spending generator, the sample groups (The Shilla, Weekend crew, Study group) and the in-app sample records (youth account, salary payee, marathon ranking, savings goal) are gone. The live databases were reset to this empty state. Kept: the five logins, the BarQ Developers group, the Flappy Bird game entry, the Places and Categories data, and the Market product catalog and card designs. Added "Who's paying?" hangout votes (`server/hangouts.mjs`, `/api/hangouts`): each member votes split, own, or "I will pay it". One volunteer pays; two or more volunteers play Flappy Bird and the highest score pays; otherwise the majority decides and a split/own tie means everyone pays their own. Points Challenges now opens Flappy Bird directly and reports the final score to the app for these games. Payments for hangouts are charged to wallets and saved in the Payments database.
+
+**Validation:** TypeScript build passed. 24 backend tests passed, including all three voting scenarios, the split majority, and vote validation. 23 Playwright tests passed in two consecutive runs, including the volunteer, game, and tie flows in the browser.
+
+**Open items:** Deployment to the ring server follows in the next entry.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)
