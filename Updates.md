@@ -145,3 +145,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** The ring server still has neither `CLAUDE_DEV_KEY` nor `RING_CLOUD_KEY` in `~/barq/.env`, and still needs a Cloudflare tunnel route to be public.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 21:09 (Asia/Riyadh)
+
+**Update:** At the repository owner's request, copied `CLAUDE_DEV_KEY` and `RING_CLOUD_KEY` to `~/barq/.env` on the ring server (owner-only permissions, written over SSH stdin, values not printed or committed) and recreated the `barq` container so the AI Analyst and its Ring API fallback work there.
+
+**Validation:** `/api/health` on the server reports both Claude-Dev and the Ring API configured, with restart policy `always`. A live read-only advice request on the server returned Claude's tips in 2.9 s.
+
+**Open items:** The ring copy still needs a Cloudflare tunnel route to be public.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)
