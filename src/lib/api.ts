@@ -8,8 +8,8 @@ export class ApiError extends Error {
 
 const TOKEN_KEY = 'barq.session';
 const TIMEOUT_MS = 10_000;
-/** The AI Analyst waits on Claude, which can take a minute or more. */
-export const AI_TIMEOUT_MS = 150_000;
+/** The AI Analyst may wait on Claude-Dev and then the Ring API fallback. */
+export const AI_TIMEOUT_MS = 180_000;
 
 export const tokenStore = {
   get(): string | null { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },

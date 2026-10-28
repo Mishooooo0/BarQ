@@ -2,7 +2,7 @@
 // Vite dev server (vite.config.ts), so the UI and API always run together on one origin.
 import { clearFailures, issueToken, lockedFor, readToken, recordFailure, verifyPin } from './auth.mjs';
 import { advice, dailyPlan, hangoutPlan, insights, spendingSummary } from './analyst.mjs';
-import { aiStatus, askJson } from './claude.mjs';
+import { aiStatus, askJson } from './ai.mjs';
 import { read, update } from './db.mjs';
 import { createSession, GameError, recordScore } from './games.mjs';
 import { CHOICES, CHOICE_LABELS, decide, dues } from './hangouts.mjs';
@@ -175,7 +175,7 @@ route('POST', '/api/transfers', async ({ req }) => {
 });
 
 // AI Analyst
-// AI Analyst: facts are computed here, the advice and plans come from Claude (server/claude.mjs).
+// AI Analyst: facts are computed here, the advice and plans come from the AI (server/ai.mjs).
 route('GET', '/api/analyst/insights', ({ req }) => insights(me(read('users'), req)));
 route('GET', '/api/analyst/advice', ({ req }) => advice(me(read('users'), req), askJson));
 route('POST', '/api/analyst/daily', async ({ req }) => {

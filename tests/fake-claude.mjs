@@ -1,6 +1,8 @@
-// A stand-in for the Claude-Dev endpoint used by the tests, so they never spend credits or wait on the network.
-// It answers POST /v1/messages like the Messages API, choosing from the options in the prompt's DATA block.
-// Budget 77 answers with junk first (to test the retry); budget 88 always names an unknown place.
+// A stand-in for the AI endpoints used by the tests, so they never spend credits or wait on the network.
+// POST /v1/messages answers like Claude-Dev (Messages API); POST /ring/v1/chat/completions answers like the Ring API
+// (OpenAI chat completions). Both choose from the options in the prompt's DATA block.
+// Budget 77 answers with junk first (to test the retry); budget 88 always names an unknown place;
+// budget 99 makes Claude-Dev take 3 seconds (to test the Ring API fallback).
 import http from 'node:http';
 
 function answer(prompt) {
@@ -27,13 +29,21 @@ export function startFakeClaude(port = 0) {
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end('{"ok":true}'); }
-      if (req.method !== 'POST' || !req.url.endsWith('/v1/messages')) { res.writeHead(404, { 'content-type': 'application/json' }); return res.end('{"type":"error","error":{"type":"not_found_error","message":"not found"}}'); }
+      const ring = req.url === '/ring/v1/chat/completions';
+      if (req.method !== 'POST' || !(ring || req.url.endsWith('/v1/messages'))) { res.writeHead(404, { 'content-type': 'application/json' }); return res.end('{"type":"error","error":{"type":"not_found_error","message":"not found"}}'); }
       const request = JSON.parse(body);
       const prompt = request.messages.at(-1).content;
-      const value = answer(typeof prompt === 'string' ? prompt : prompt.map(p => p.text).join(''));
+      const promptText = typeof prompt === 'string' ? prompt : prompt.map(p => p.text).join('');
+      const value = answer(promptText);
       const text = typeof value === 'string' ? value : JSON.stringify(value);
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ id: `msg_fake_${Date.now()}`, type: 'message', role: 'assistant', model: request.model, content: [{ type: 'text', text }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 10 } }));
+      const reply = () => {
+        if (res.destroyed) return;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(ring
+          ? { id: `chatcmpl_fake_${Date.now()}`, object: 'chat.completion', model: request.model, choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }] }
+          : { id: `msg_fake_${Date.now()}`, type: 'message', role: 'assistant', model: request.model, content: [{ type: 'text', text }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 10 } }));
+      };
+      if (!ring && /"(budget|perPersonBudget)":99[,}]/.test(promptText)) setTimeout(reply, 3000); else reply();
     });
   });
   return new Promise(resolve => server.listen(port, '127.0.0.1', () => resolve(server)));

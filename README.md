@@ -24,7 +24,7 @@ Open http://127.0.0.1:5173/. `npm run dev` runs the UI **and** the API in one pr
 | `npm run test:e2e` | Browser tests (Playwright + Chrome, separate database in `test-results/e2e-db`) |
 | `npm run build` | Strict TypeScript check and production build in `dist/` |
 
-## Connecting the AI Analyst to Claude
+## Connecting the AI Analyst
 
 The analyst calls Claude through the **Claude-Dev** endpoint (the same one The Ring's `claude-dev` profile uses). The server reads these environment variables; the key is never written to the repo:
 
@@ -33,10 +33,16 @@ The analyst calls Claude through the **Claude-Dev** endpoint (the same one The R
 | `CLAUDE_DEV_KEY` | (required) | API key for the endpoint |
 | `CLAUDE_DEV_BASE_URL` | `https://claudeapikey.dev` | Endpoint base URL |
 | `CLAUDE_DEV_MODEL` | `claude-haiku-4-5` | Model name |
+| `CLAUDE_DEV_TIMEOUT_MS` | `25000` | How long to wait for Claude-Dev before using the Ring API |
+| `RING_CLOUD_KEY` | (optional) | Key for the Ring API fallback (the same variable The Ring uses) |
+| `RING_API_BASE_URL` | `https://ring.arc-homlab.com/v1` | Ring API base URL (OpenAI-compatible) |
+| `RING_API_MODEL` | `ring-fast` | Ring API model |
 
 Set the key once in your Windows user environment, then open a new terminal so the server inherits it. `GET /api/health` shows `ai.configured` (never the key). Without a key the facts still load, and the plans and tips explain how to connect.
 
-That endpoint ignores the API's structured-output option and replaces client tools with its own, so the server asks for JSON in the prompt and validates every answer. Place ids must exist in the Places database, prices come from the database rather than from Claude, totals are kept within the budget, and an unusable answer is retried once. Calls are queued one at a time because the account allows one request at a time.
+**Ring API fallback:** Claude-Dev's response time varies a lot (about 2 seconds in one test, about 77 seconds in another). If it takes longer than `CLAUDE_DEV_TIMEOUT_MS`, returns an error, or keeps giving unusable answers, the Ring API answers instead (`ring-fast` answered in about 6 seconds in testing). The screen says which one answered, and `GET /api/health` shows both connections under `ai`.
+
+Claude-Dev ignores the API's structured-output option and replaces client tools with its own, so the server asks for JSON in the prompt and validates every answer. Place ids must exist in the Places database, prices come from the database rather than from Claude, totals are kept within the budget, and an unusable answer is retried once. Calls are queued one at a time because the account allows one request at a time.
 
 ## Running 24/7
 
@@ -97,7 +103,7 @@ Open it from the card on Home or from More → Explore. The character is the pix
 - **Daily plan:** choose a budget with the slider, from SAR 0 up to what is in your wallet. Claude builds the day from Riyadh places that fit, weighted by your own habits, and shows what stays in your wallet.
 - **Hangout:** choose a group and your budget, and add people to the group. The plan uses the **smallest** budget in the group so nobody is put on the spot. Only that smallest budget is sent to Claude; other members' budgets and balances are never shown or sent.
 
-Facts and candidate places are computed in [`server/analyst.mjs`](server/analyst.mjs); the Claude client is [`server/claude.mjs`](server/claude.mjs). Tests use a local stand-in (`tests/fake-claude.mjs`) and never call the real endpoint.
+Facts and candidate places are computed in [`server/analyst.mjs`](server/analyst.mjs); the AI clients (Claude-Dev, then the Ring API) are in [`server/ai.mjs`](server/ai.mjs). Tests use a local stand-in for both (`tests/fake-claude.mjs`) and never call the real endpoints.
 
 ## Who's paying? (hangout votes)
 
@@ -130,7 +136,7 @@ server/
   seed.mjs       The five accounts, groups, games and 60-day spending generator
   auth.mjs       PIN hashing, signed session tokens, lockout
   analyst.mjs    AI Analyst: facts, candidate places, validation of Claude's plans
-  claude.mjs     Claude-Dev client: JSON prompting, retries, one request at a time
+  ai.mjs         AI clients: Claude-Dev first, Ring API fallback; JSON prompting, retries, one request at a time
   games.mjs      Game sessions and bill payer
   hangouts.mjs   "Who pays?" vote rules and who owes what
   places.mjs     Places and Categories database

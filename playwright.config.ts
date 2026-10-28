@@ -21,6 +21,6 @@ export default defineConfig({
   // The AI Analyst talks to a local stand-in for the Claude-Dev endpoint (tests/fake-claude.mjs), never the real one.
   webServer: [
     { command: 'node tests/fake-claude.mjs', url: 'http://127.0.0.1:5175/health', reuseExistingServer: false, env: { FAKE_CLAUDE_PORT: '5175' } },
-    { command: `npm run dev -- --port ${port} --strictPort`, url: `http://127.0.0.1:${port}/api/health`, reuseExistingServer: false, env: { BARQ_DB_DIR: process.env.BARQ_DB_DIR, CLAUDE_DEV_BASE_URL: 'http://127.0.0.1:5175', CLAUDE_DEV_KEY: 'test-key' } },
+    { command: `npm run dev -- --port ${port} --strictPort`, url: `http://127.0.0.1:${port}/api/health`, reuseExistingServer: false, env: { BARQ_DB_DIR: process.env.BARQ_DB_DIR, CLAUDE_DEV_BASE_URL: 'http://127.0.0.1:5175', CLAUDE_DEV_KEY: 'test-key', RING_API_BASE_URL: 'http://127.0.0.1:5175/ring/v1', RING_CLOUD_KEY: 'test-ring-key', CLAUDE_DEV_TIMEOUT_MS: '1000' } },
   ],
 });

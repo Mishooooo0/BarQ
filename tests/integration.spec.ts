@@ -181,3 +181,15 @@ test('who pays: a split/own tie ends as everyone pays their own', async ({ page 
   await expect(card.locator('.dues-list li').filter({ hasText: 'You' })).toContainText('Paid');
   await expect(card.locator('.hangout-status')).toHaveText('Decided');
 });
+
+test('when Claude-Dev is slow the Ring API plans the day and the screen says so', async ({ page }) => {
+  fund('meshal', 500);
+  await signIn(page);
+  await page.goto('/analyst');
+  await expect(page.locator('.ai-source').first()).toHaveText('Answered by Claude.');
+  await page.getByRole('tab', { name: 'Daily plan' }).click();
+  await page.getByRole('slider', { name: "Today's budget" }).fill('99');
+  await page.getByRole('button', { name: 'Plan my day' }).click();
+  await expect(page.locator('.plan-item').first()).toBeVisible();
+  await expect(page.locator('.ai-source')).toContainText('Answered by the Ring API because Claude-Dev was slow or unavailable (Claude-Dev took too long to answer)');
+});

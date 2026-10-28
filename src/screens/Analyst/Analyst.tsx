@@ -6,7 +6,7 @@ import { AI_TIMEOUT_MS, api, errorMessage } from '../../lib/api';
 import { DetailHeader, ErrorState, MockNote, Money } from '../../components/ui/Primitives';
 import { AnalystSprite } from './AnalystSprite';
 import { HangoutVotes } from './HangoutVotes';
-import type { Advice, DailyPlan, Group, Hangout, HangoutPlan, Insights, PlanItem, Pose } from '../../types/api';
+import type { Advice, AiSource, DailyPlan, Group, Hangout, HangoutPlan, Insights, PlanItem, Pose } from '../../types/api';
 
 type Tab = 'insights' | 'daily' | 'hangout';
 const tabs: { id: Tab; label: string }[] = [{ id: 'insights', label: 'Insights' }, { id: 'daily', label: 'Daily plan' }, { id: 'hangout', label: 'Hangout' }];
@@ -100,14 +100,14 @@ export function Analyst() {
 
     {tab === 'insights' && <>
       {advice.error && <ErrorState message={advice.error} onRetry={fetchAdvice} />}
-      {insights.error ? <ErrorState message={insights.error} onRetry={fetchInsights} /> : insights.data ? <InsightsView data={insights.data} tips={advice.data?.tips ?? null} tipsLoading={advice.loading} onPlan={() => { setDayBudget(Math.min(insights.data!.budgets.daily, balance)); setTab('daily'); }} /> : <p className="muted center" role="status">Loading insights…</p>}
+      {insights.error ? <ErrorState message={insights.error} onRetry={fetchInsights} /> : insights.data ? <InsightsView data={insights.data} advice={advice.data} tips={advice.data?.tips ?? null} tipsLoading={advice.loading} onPlan={() => { setDayBudget(Math.min(insights.data!.budgets.daily, balance)); setTab('daily'); }} /> : <p className="muted center" role="status">Loading insights…</p>}
     </>}
 
     {tab === 'daily' && <>
       <BudgetSlider label="Today's budget" value={budget} max={balance} onChange={setDayBudget} />
       <button className="primary-button" onClick={runDaily} disabled={daily.loading}>{daily.loading ? 'Planning…' : daily.data && daily.data.budget !== budget ? 'Update my plan' : 'Plan my day'}</button>
       {daily.error && <ErrorState message={daily.error} onRetry={runDaily} />}
-      {daily.data && !daily.error && <PlanView items={daily.data.items} footer={<><div><span>Planned</span><Money amount={daily.data.total} /></div><div><span>Stays in wallet</span><Money amount={daily.data.remaining} /></div></>} />}
+      {daily.data && !daily.error && <><PlanView items={daily.data.items} footer={<><div><span>Planned</span><Money amount={daily.data.total} /></div><div><span>Stays in wallet</span><Money amount={daily.data.remaining} /></div></>} /><AnsweredBy info={daily.data} /></>}
     </>}
 
     {tab === 'hangout' && <>
@@ -128,6 +128,7 @@ export function Analyst() {
         {hangout.data && !hangout.error && <>
           <div className="info-panel per-person"><p>Budget per person everyone can manage</p><Money amount={hangout.data.perPersonBudget} />{hangout.data.pending.length > 0 && <p className="fine-print">Planned without {hangout.data.pending.join(', ')}: no budget set yet.</p>}</div>
           <PlanView items={hangout.data.items} footer={<><div><span>Per person</span><Money amount={hangout.data.perPersonTotal} /></div><div><span>Whole group ({hangout.data.groupSize})</span><Money amount={hangout.data.groupTotal} /></div></>} />
+          <AnsweredBy info={hangout.data} />
           {hangout.data.items.some(i => i.place) && hangout.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? 'Starting the vote…' : "Ask the group: who's paying?"}</button>}
           {asking.error && <p className="error-text" role="alert">{asking.error}</p>}
         </>}
@@ -161,7 +162,12 @@ function PlanView({ items, footer }: { items: PlanItem[]; footer: React.ReactNod
   </div>;
 }
 
-function InsightsView({ data, tips, tipsLoading, onPlan }: { data: Insights; tips: string[] | null; tipsLoading: boolean; onPlan: () => void }) {
+/** Says which AI answered; the Ring API steps in when Claude-Dev is slow or failing. */
+function AnsweredBy({ info }: { info: AiSource }) {
+  return <p className="fine-print ai-source">{info.source === 'ring' ? `Answered by the Ring API because Claude-Dev was slow or unavailable${info.fallbackReason ? ` (${info.fallbackReason.replace(/\.$/, '')})` : ''}.` : 'Answered by Claude.'}</p>;
+}
+
+function InsightsView({ data, advice, tips, tipsLoading, onPlan }: { data: Insights; advice: Advice | null; tips: string[] | null; tipsLoading: boolean; onPlan: () => void }) {
   const max = Math.max(1, ...data.byCategory.map(c => c.amount));
   return <>
     <div className="insight-grid"><div><span>Today</span><Money amount={data.summary.today} /></div><div><span>This week</span><Money amount={data.summary.week} /></div><div><span>30 days</span><Money amount={data.summary.month} /></div></div>
@@ -169,6 +175,6 @@ function InsightsView({ data, tips, tipsLoading, onPlan }: { data: Insights; tip
     {data.alerts.length > 0 && <section className="analyst-section"><h3>Watch out</h3>{data.alerts.map(alert => <p key={alert.message} className="alert-item"><AlertTriangle size={16} />{alert.message}</p>)}</section>}
     {data.subscriptions.length > 0 && <section className="analyst-section"><h3>Upcoming subscriptions</h3>{data.subscriptions.map(sub => <div key={sub.seller} className={`sub-item ${sub.daysLeft <= 7 ? 'soon' : ''}`}><CalendarClock size={16} /><span>{sub.seller}</span><small>{sub.daysLeft === 0 ? 'Today' : sub.daysLeft === 1 ? 'Tomorrow' : `In ${sub.daysLeft} days`}</small><Money amount={sub.amount} /></div>)}</section>}
     <section className="analyst-section"><h3>Where your money went (30 days)</h3><div className="spending-bars">{data.byCategory.map((c, i) => <div key={c.id}><span>{c.name}</span><div><i style={{ width: `${Math.max(4, (c.amount / max) * 100)}%`, background: ['#f8db4c', '#bce1e5', '#d5cee7'][i % 3] }} /></div><Money amount={c.amount} /></div>)}</div></section>
-    <section className="analyst-section"><h3>Tips from your AI Analyst</h3>{tips ? <ul className="tip-list">{tips.map(tip => <li key={tip}>{tip}</li>)}</ul> : <p className="muted">{tipsLoading ? 'Claude is writing your tips…' : 'Tips are not available right now.'}</p>}</section>
+    <section className="analyst-section"><h3>Tips from your AI Analyst</h3>{tips ? <><ul className="tip-list">{tips.map(tip => <li key={tip}>{tip}</li>)}</ul>{advice && <AnsweredBy info={advice} />}</> : <p className="muted">{tipsLoading ? 'Claude is writing your tips…' : 'Tips are not available right now.'}</p>}</section>
   </>;
 }

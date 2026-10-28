@@ -4,12 +4,16 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+// Never reach the real AI endpoints from tests, whatever keys this machine has.
+for (const name of ['CLAUDE_DEV_KEY', 'CLAUDE_DEV_BASE_URL', 'CLAUDE_DEV_MODEL', 'CLAUDE_DEV_TIMEOUT_MS', 'RING_CLOUD_KEY', 'RING_API_BASE_URL', 'RING_API_MODEL', 'RING_API_TIMEOUT_MS']) delete process.env[name];
 const dir = mkdtempSync(path.join(tmpdir(), 'barq-db-'));
 process.env.BARQ_DB_DIR = dir;
 const { startFakeClaude } = await import('../tests/fake-claude.mjs');
 const fake = await startFakeClaude();
 process.env.CLAUDE_DEV_BASE_URL = `http://127.0.0.1:${fake.address().port}`;
 process.env.CLAUDE_DEV_KEY = 'test-key';
+process.env.CLAUDE_DEV_TIMEOUT_MS = '1000';
+const RING_URL = `http://127.0.0.1:${fake.address().port}/ring/v1`;
 const { startServer } = await import('./index.mjs');
 const { ensureDb, update } = await import('./db.mjs');
 const { SEED_ACCOUNTS } = await import('./seed.mjs');
@@ -184,6 +188,28 @@ test('without a key the analyst explains how to connect it', async () => {
     assert.match(body.error, /CLAUDE_DEV_KEY/);
     assert.equal((await call('GET', '/api/analyst/insights', { token })).status, 200);
   } finally { process.env.CLAUDE_DEV_KEY = key; }
+});
+
+test('when Claude-Dev is slow, the Ring API answers instead', async () => {
+  Object.assign(process.env, { RING_API_BASE_URL: RING_URL, RING_CLOUD_KEY: 'test-ring-key' });
+  try {
+    const token = await login('sultana');
+    const health = (await call('GET', '/api/health')).body.ai;
+    assert.deepEqual([health.claude, health.fallback.configured, health.fallback.model], [true, true, 'ring-fast']);
+    assert.ok(!JSON.stringify(health).includes('test-ring-key'));
+    const fast = (await call('POST', '/api/analyst/daily', { token, body: { budget: 100 } })).body;
+    assert.equal(fast.source, 'claude');
+    const started = Date.now();
+    const slow = await call('POST', '/api/analyst/daily', { token, body: { budget: 99 } });
+    assert.equal(slow.status, 200);
+    assert.equal(slow.body.source, 'ring');
+    assert.match(slow.body.fallbackReason, /took too long/);
+    assert.ok(slow.body.items.length > 0 && slow.body.total <= 99);
+    assert.ok(Date.now() - started < 2900, 'did not wait for the slow Claude-Dev answer');
+    const key = process.env.CLAUDE_DEV_KEY; delete process.env.CLAUDE_DEV_KEY;
+    try { assert.equal((await call('POST', '/api/analyst/daily', { token, body: { budget: 100 } })).body.source, 'ring', 'Ring API alone works'); }
+    finally { process.env.CLAUDE_DEV_KEY = key; }
+  } finally { delete process.env.RING_API_BASE_URL; delete process.env.RING_CLOUD_KEY; }
 });
 
 test('payments are stored as name, price, category and date and charge the wallet', async () => {

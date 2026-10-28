@@ -18,12 +18,13 @@ export interface Insights {
   subscriptions: { seller: string; category: CategoryId; amount: number; nextDue: string; daysLeft: number }[];
 }
 /** Written by Claude from the insights. */
-export interface Advice { headline: string; tips: string[]; pose: Pose; }
+export type AiSource = { source: 'claude' | 'ring'; fallbackReason: string | null };
+export interface Advice extends AiSource { headline: string; tips: string[]; pose: Pose; }
 /** A record in the Payments database. */
 export interface Payment { id: string; name: string; price: number; category: string; categoryId: CategoryId; date: string; placeId: string; createdAt: string; }
 export interface PlanItem { time: string; label: string; category: CategoryId; categoryName: string; estimate: number; place: PublicPlace | null; note: string | null; }
-export interface DailyPlan { type: 'daily'; date: string; budget: number; items: PlanItem[]; total: number; remaining: number; usualDaily: number; message: string; pose: Pose; }
-export interface HangoutPlan {
+export interface DailyPlan extends AiSource { type: 'daily'; date: string; budget: number; items: PlanItem[]; total: number; remaining: number; usualDaily: number; message: string; pose: Pose; }
+export interface HangoutPlan extends AiSource {
   type: 'hangout'; date: string; group: { id: string; name: string }; members: { id: string; name: string; ready: boolean }[]; pending: string[];
   perPersonBudget: number; groupSize: number; items: PlanItem[]; perPersonTotal: number; groupTotal: number; message: string; pose: Pose;
 }

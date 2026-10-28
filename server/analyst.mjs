@@ -1,5 +1,6 @@
 // The AI Analyst. This file computes the facts from a user's real spending (totals, budgets, alerts, subscriptions)
-// and asks Claude (server/claude.mjs) to write the advice and choose the plans from the Places database.
+// and asks the AI (server/ai.mjs: Claude-Dev, or the Ring API when Claude-Dev is slow) to write the advice and choose
+// the plans from the Places database.
 import { categories, places, publicPlace } from './places.mjs';
 import { addDays, dayKey, daysBetween } from './time.mjs';
 
@@ -85,7 +86,7 @@ const cleanText = (value, field, max = 400) => {
 
 export async function advice(user, ask, now = new Date()) {
   const facts = insights(user, now);
-  return ask({
+  const { value, provider, fallbackReason } = await ask({
     task: 'advice',
     instructions: 'Read this user\'s spending facts and write a short headline (max 12 words) and 2 to 4 practical, specific tips (one sentence each) that use the real numbers. Mention upcoming subscriptions due within 7 days. Pick the character pose that fits: receipt for warnings, thumbs or celebrate for good news, piggy for saving, growth for progress.',
     schema: { type: 'object', properties: { headline: { type: 'string' }, tips: { type: 'array', items: { type: 'string' } }, pose: { enum: POSES } }, required: ['headline', 'tips', 'pose'] },
@@ -96,6 +97,7 @@ export async function advice(user, ask, now = new Date()) {
       return { headline: cleanText(value.headline, 'headline', 160), tips, pose: poseOf(value.pose) };
     },
   });
+  return { ...value, source: provider, fallbackReason: fallbackReason ?? null };
 }
 
 /** How the user splits leisure spending over 60 days, as shares. */
@@ -152,14 +154,14 @@ function checkItems(rawItems, options, budget, { allowRide }) {
 export async function dailyPlan(user, budget, ask, now = new Date()) {
   const facts = insights(user, now);
   const options = candidates(['cafe', 'food', 'entertainment'], budget);
-  const plan = await ask({
+  const { value: plan, provider, fallbackReason } = await ask({
     task: 'daily-plan',
     instructions: `Plan today for this user within a budget of SAR ${budget} per the DATA. Choose places only from "options" by placeId. Each place costs its "cost" and the total must not exceed the budget. A ride for the day (category "transportation", placeId null) costs SAR ${RIDE_COST}; include it only if the budget is at least SAR 60. Lean towards the categories the user spends most on ("habits"), keep some money unspent when the budget is generous, and use realistic times. If nothing fits, return an empty items list and suggest a no-spend day. Write a warm 1-2 sentence message that mentions the budget, and pick a pose (idea for a plan, piggy for a no-spend day).`,
     schema: { type: 'object', properties: { message: { type: 'string' }, pose: { enum: POSES }, items: { type: 'array', items: PLAN_ITEM } }, required: ['message', 'pose', 'items'] },
     data: { name: user.name, today: dayKey(now), budget, usualDailySpend: facts.summary.avgDaily, habits: habits(user, now), options },
     validate: value => ({ message: cleanText(value.message, 'message'), pose: poseOf(value.pose), ...checkItems(value.items, options, budget, { allowRide: budget >= 60 }) }),
   });
-  return { type: 'daily', date: dayKey(now), budget, items: plan.items, total: plan.total, remaining: round2(budget - plan.total), usualDaily: facts.summary.avgDaily, message: plan.message, pose: plan.pose, source: 'claude' };
+  return { type: 'daily', date: dayKey(now), budget, items: plan.items, total: plan.total, remaining: round2(budget - plan.total), usualDaily: facts.summary.avgDaily, message: plan.message, pose: plan.pose, source: provider, fallbackReason: fallbackReason ?? null };
 }
 
 /**
@@ -171,7 +173,7 @@ export async function hangoutPlan(user, group, members, budget, ask, now = new D
   const perPerson = round2(Math.min(...budgets.filter(value => value != null)));
   const pending = members.filter((member, i) => budgets[i] == null).map(member => member.name);
   const options = candidates(['entertainment', 'food', 'cafe'], perPerson);
-  const plan = await ask({
+  const { value: plan, provider, fallbackReason } = await ask({
     task: 'hangout-plan',
     instructions: `Plan an evening outing for the group "${group.name}" (${members.length} people). Every person can spend at most SAR ${perPerson}. Choose places only from "options" by placeId; each "cost" is per person and the per-person total must not exceed SAR ${perPerson}. Prefer an activity, then dinner, then coffee, between 17:00 and 23:30, but fit the budget first. If nothing fits, return an empty items list and suggest a home hangout. Write a friendly 1-2 sentence message for the group that mentions the per-person budget but never suggests anyone has less money. Pick a pose (places for a plan, think if nothing fits).`,
     schema: { type: 'object', properties: { message: { type: 'string' }, pose: { enum: POSES }, items: { type: 'array', items: PLAN_ITEM } }, required: ['message', 'pose', 'items'] },
@@ -182,6 +184,6 @@ export async function hangoutPlan(user, group, members, budget, ask, now = new D
     type: 'hangout', date: dayKey(now), group: { id: group.id, name: group.name },
     members: members.map((member, i) => ({ id: member.id, name: member.name, ready: budgets[i] != null })),
     pending, perPersonBudget: perPerson, groupSize: members.length, items: plan.items, perPersonTotal: plan.total, groupTotal: round2(plan.total * members.length),
-    message: plan.message, pose: plan.pose, source: 'claude',
+    message: plan.message, pose: plan.pose, source: provider, fallbackReason: fallbackReason ?? null,
   };
 }

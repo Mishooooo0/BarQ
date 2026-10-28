@@ -135,3 +135,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** On this PC, Docker Desktop's "start when you sign in" is off, so the local container will not start after a Windows restart until Docker Desktop is opened. The old `barq_barq-data` volume on ring is no longer used and was left in place. The ring copy still needs a Cloudflare tunnel route to be public and `CLAUDE_DEV_KEY` in `~/barq/.env` for the AI.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-28 21:01 (Asia/Riyadh)
+
+**Update:** Ran The Ring's Claude-Dev test (`test.py`, all six formats): every format answered in about 2 seconds this time, against about 77 seconds in The Ring's earlier saved run, so the delay is intermittent. Attached the Ring API (`https://ring.arc-homlab.com/v1`, model `ring-fast`, key from `RING_CLOUD_KEY`) as an automatic fallback: `server/ai.mjs` (replacing `server/claude.mjs`) tries Claude-Dev first and switches to the Ring API when Claude-Dev takes longer than 25 seconds (`CLAUDE_DEV_TIMEOUT_MS`), errors, or keeps giving unusable answers. The Ring API also works alone if only its key is set. Answers from either are validated the same way, and the Analyst screen says which one answered. The containers pass `RING_CLOUD_KEY` through. Turned on Docker Desktop's start-at-sign-in on this PC (backup at `settings-store.json.bak-barq`).
+
+**Validation:** 25 backend tests and 24 Playwright tests passed (browser suite twice), including a slow-Claude-Dev case served by the Ring API. Tests now clear real AI keys from their environment; before that fix, one backend run sent a few test prompts to the real Ring API. Live check with the real keys: Claude-Dev answered in 2.8 s; with Claude-Dev forced to time out, the Ring API answered in 9.7 s.
+
+**Open items:** The ring server still has neither `CLAUDE_DEV_KEY` nor `RING_CLOUD_KEY` in `~/barq/.env`, and still needs a Cloudflare tunnel route to be public.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

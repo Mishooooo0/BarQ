@@ -2,7 +2,7 @@
 # Runs 24/7: Docker starts at boot and `restart: always` brings BarQ back after a crash or reboot.
 # The databases live in ~/barq/data on the host, so they survive rebuilds, redeploys and `docker compose down`.
 # Bound to localhost like the other apps on the server; publish it through the Cloudflare tunnel to make it public.
-# Put CLAUDE_DEV_KEY=... in ~/barq/.env (mode 600) to connect the AI Analyst.
+# Put CLAUDE_DEV_KEY=... (and RING_CLOUD_KEY=... for the Ring API fallback) in ~/barq/.env (mode 600) to connect the AI Analyst.
 services:
   barq:
     build: ./app
@@ -13,5 +13,6 @@ services:
       - "127.0.0.1:5352:5352"
     environment:
       CLAUDE_DEV_KEY: ${CLAUDE_DEV_KEY:-}
+      RING_CLOUD_KEY: ${RING_CLOUD_KEY:-}
     volumes:
       - ./data:/app/data/db
