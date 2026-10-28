@@ -244,6 +244,36 @@ button:focus-visible, [tabindex]:focus-visible, canvas:focus-visible{outline:3px
 @keyframes fxpop{0%{transform:scale(.3); opacity:0}30%{transform:scale(1.15); opacity:1}100%{transform:translateY(-14px); opacity:0}}
 @keyframes fxfloat{0%,100%{transform:none}50%{transform:translateY(-4px)}}
 
+/* Game screens fit the phone like a native screen: one fixed-height column, no page scroll.
+   The board takes whatever height is left; rules live in the "?" sheet; points show on the hub. */
+body[data-screen="game"] .summary, body[data-screen="game"] .rule{display:none}
+body[data-screen="game"]{overflow:hidden}
+.card:not(#hub){
+  display:flex; flex-direction:column; gap:10px;
+  height:calc(100dvh - 204px); max-height:720px; min-height:440px;
+}
+.card:not(#hub) > *{flex-shrink:0}
+.card:not(#hub) > .stage{flex:1 1 0; min-height:0; container-type:size; padding:10px}
+#stack-cv{width:min(100cqw, 100cqh * 320 / 420); max-width:none}
+#aim-cv{width:min(100cqw, 100cqh); max-width:none}
+#g-react .stage > div{gap:10px!important}
+.pad{width:min(200px, 70cqw, 100cqh - 46px)}
+.field{height:100%}
+.dots{padding:6px 12px; align-self:center}
+.timer{font-size:1.9rem; padding:0}
+.hud{gap:8px}
+.stat{padding:7px 12px}
+.stat strong{font-size:1.1rem}
+.card:not(#hub) .msg{min-height:0; height:1.6em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* The start button keeps its slot while hidden, so the board never resizes mid-round. */
+.card > .primary[hidden]{display:block!important; visibility:hidden}
+
+/* Mascot at 75%: he still leans over the board edge, in a shorter strip. */
+:root{--buddy-scale:.75}
+.buddy{height:84px; margin-bottom:-14px}
+.buddy-body{scale:var(--buddy-scale); transform-origin:100% 100%}
+.buddy-bubble{top:8px; padding:7px 12px; font-size:.85rem}
+
 @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important} }
 </style>
 
@@ -322,7 +352,7 @@ button:focus-visible, [tabindex]:focus-visible, canvas:focus-visible{outline:3px
     <h2>رد الفعل</h2>
     <p class="rule">خمس جولات. انتظر الضوء الأخضر ثم اضغط بأسرع ما تقدر. كل جولة تعطيك حتى 100 نقطة، وكل 10 ملي ثانية تنقص نقطة. الضغط قبل الأخضر يعطيك صفر.</p>
     <div class="dots" id="react-dots" aria-label="نتائج الجولات"></div>
-    <div class="stage" style="min-height:300px">
+    <div class="stage">
       <div style="display:grid; gap:16px; justify-items:center; width:100%">
         <p class="msg" id="react-status" aria-live="polite"></p>
         <div class="pad" id="react-pad" role="button" tabindex="0" aria-label="منطقة الضغط"></div>
@@ -449,8 +479,8 @@ function makeBuddy(card){
       img.src = sp.uri; img.width = sp.w * SCALE; img.height = sp.h * SCALE;
       img.dataset.sprite = s.sprite;
       // Keep the speech bubble right beside whichever pose is showing.
-      bubble.style.insetInlineStart = (sp.w * SCALE + 16) + 'px';
-      bubble.style.maxWidth = `calc(100% - ${sp.w * SCALE + 16}px)`;
+      bubble.style.insetInlineStart = `calc(${sp.w * SCALE}px * var(--buddy-scale) + 14px)`;
+      bubble.style.maxWidth = `calc(100% - ${sp.w * SCALE}px * var(--buddy-scale) - 14px)`;
       img.classList.remove('swap'); void img.offsetWidth; img.classList.add('swap');
     }
     // Clear then set so a repeated state restarts its animation.
@@ -488,6 +518,7 @@ function show(g){
   $('hub').hidden = g !== 'hub';
   $('back').hidden = g === 'hub' && !EMBED;
   $('page-title').textContent = TITLES[g];
+  document.body.dataset.screen = g === 'hub' ? 'hub' : 'game';
   window.scrollTo(0, 0);
 }
 const TITLES = { hub:'الألعاب', stack:'تحدي البناء', react:'رد الفعل', aim:'تحدي الدقة', num:'ترتيب الأرقام' };
@@ -652,7 +683,7 @@ function skEnd(){
     : { state:'idle', text:'ولا يهمك، جرب مرة ثانية' });
 }
 function skUpdate(){
-  $('stack-height').textContent = sk.blocks.length - 1;
+  $('stack-height').textContent = Math.max(0, sk.blocks.length - 1);
   $('stack-score').textContent = sk.score;
   skDraw();
 }
