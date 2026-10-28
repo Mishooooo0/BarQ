@@ -206,6 +206,16 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 
+## 2026-10-29 00:29 (Asia/Riyadh)
+
+**Update:** Added an assignment-aligned AI Feature Innovation report in Markdown, editable Word, PDF and self-contained HTML. Applied BarQ yellow/black styling, original character poses and faint logo backgrounds; included the five confirmed team names, current/proposed journeys, wireframes and six prototype screenshots. The report explicitly identifies its source commit, mock account data and local AI test responses. Added report asset/layout scripts.
+
+**Validation:** Verified report sections, source text, names, figures, embedded assets and the Word watermark; visually inspected representative PDF pages. In an isolated copy of the report’s pinned commit, exercised wallet persistence, spending insights, daily planning, Hangouts planning, UI-created voting and filtering 208 places to 50 cafés. No page errors in the completed capture flow. Full suites and live AI were not rerun for this report.
+
+**Open items:** External-source verification and primary user research remain pending as documented. The report reflects its stated earlier snapshot; newer branch features remain intact. The earlier development reload was traced to the temporary database location and resolved by moving it outside watched source files.
+
+Tool: Codex — Developer: Unassigned (report and publication requested by repository owner)
+
 ## 2026-10-29 00:56 (Asia/Riyadh)
 
 **Update:** UI polish pass across the whole app; no backend changes. Home: the four feature cards (AI Analyst, Hangouts, Occasions, Saving box) are now a 2 × 2 "Explore with Barq" grid, and the action buttons have rounded focus rings. Transactions: each purchase shows its category icon (food, cafe, groceries, shopping, health, transport, entertainment), with distinct icons for transfers, top-ups, cashback and the Saving box; names and amounts are larger and long names wrap to two lines. Pay at places: payment dates show as "29 Oct" instead of wrapping, and the intro no longer touches the filters. Market: spacing between search and Pay at places, and a shorter subtitle. Cards: "National Day 96 Card" no longer has an indented second line. Analyst and statistics: spending bars use the full width, and Barq's tips have bullets. Hangouts: space between the rules text and the vote cards. Saving box: clearer input placeholders. Places: search placeholder. Empty cart: the "Browse Market" button text was grey and is now readable. New "Page not found" screen with Barq. Small phones (375 px and narrower): tighter page padding, and occasion lines, the add-line row and the payments table no longer get cut off at 320 px. Added a browser-tab icon (the barq mark), which also removes the only console error (missing favicon).
