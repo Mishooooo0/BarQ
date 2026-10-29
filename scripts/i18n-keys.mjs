@@ -18,8 +18,8 @@ export function literalKeys() {
     const text = readFileSync(file, 'utf8');
     for (const match of text.matchAll(new RegExp(String.raw`\b(?:t|tn)\(\s*(?:${STRING})`, 'g'))) found.push({ key: unescape(match[1] ?? match[2]), plural: false, file });
     for (const match of text.matchAll(new RegExp(String.raw`\btp\([^,]+,\s*(?:${STRING})\s*,\s*(?:${STRING})`, 'g'))) found.push({ key: unescape(match[3] ?? match[4]), plural: true, file });
-    // t(condition ? 'a' : 'b', …): both branches are keys.
-    for (const match of text.matchAll(new RegExp(String.raw`\bt\([\w.]+\s*\?\s*(?:${STRING})\s*:\s*(?:${STRING})`, 'g'))) found.push({ key: unescape(match[1] ?? match[2]), plural: false, file }, { key: unescape(match[3] ?? match[4]), plural: false, file });
+    // t(condition ? 'a' : 'b', …) and tn(x === 'y' ? 'a' : 'b', …): both branches are keys.
+    for (const match of text.matchAll(new RegExp(String.raw`\b(?:t|tn)\([\w.]+(?:\s*===\s*'[^']*')?\s*\?\s*(?:${STRING})\s*:\s*(?:${STRING})`, 'g'))) found.push({ key: unescape(match[1] ?? match[2]), plural: false, file }, { key: unescape(match[3] ?? match[4]), plural: false, file });
   }
   return found;
 }

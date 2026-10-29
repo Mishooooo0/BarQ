@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { CheckCircle2, Gamepad2, Users } from 'lucide-react';
 import { useWallet } from '../../app/WalletProvider';
@@ -10,7 +10,24 @@ import { digits, formatDate, joinNames, t, tn } from '../../i18n';
 import { choiceLabel, hangoutResultText } from '../../i18n/data';
 
 const choices: VoteChoice[] = ['split', 'own', 'pay'];
-const statusText = { voting: () => t('Voting'), playing: () => t('Game to decide'), decided: () => t('Decided'), settled: () => t('Paid') } as const;
+const statusText = { voting: () => t('Voting'), playing: () => t('Game to decide'), decided: () => t('Decided'), settled: () => t('Paid'), canceled: () => t('Canceled') } as const;
+
+/** The time left to vote, counting down every second; when it reaches zero the list refreshes and the server cancels the vote. */
+function VoteTimer({ secondsLeft, onEnd }: { secondsLeft: number; onEnd: () => void }) {
+  // Re-synced whenever the server sends a new secondsLeft (every list refresh).
+  const deadline = useMemo(() => Date.now() + secondsLeft * 1000, [secondsLeft]);
+  const remaining = () => Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  const [left, setLeft] = useState(remaining);
+  useEffect(() => {
+    let ended = false;
+    const tick = () => { const s = remaining(); setLeft(s); if (s === 0 && !ended) { ended = true; onEnd(); } };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [deadline]); // onEnd is the list refresh; a new deadline restarts the countdown
+  const clock = digits(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
+  return <p className={`vote-timer ${left <= 30 ? 'soon' : ''}`} role="timer">{left > 0 ? t('{time} left to vote', { time: clock }) : t("Time's up…")}</p>;
+}
 const ended = (value: string) => formatDate(value, { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 /** The group's hangouts with their "who pays?" votes. Each member votes; the server applies the rules. */
@@ -42,7 +59,8 @@ function HangoutCard({ hangout, onChange, onPaid }: { hangout: Hangout; onChange
     <p className="hangout-plan">{hangout.items.map((i, n) => <span key={i.placeId}>{n > 0 && ' · '}{digits(i.time)} <bdi>{i.name}</bdi></span>)}</p>
     <div className="hangout-money"><span>{t('Per person')} <Money amount={hangout.perPerson} /></span><span>{t('Bill')} <Money amount={hangout.billAmount} /></span></div>
 
-    {hangout.status === 'voting' ? <>
+    {hangout.status === 'canceled' ? <p className="hangout-result" role="status">{t('The 2 minutes to vote ran out, so this hangout was canceled.')}</p> : hangout.status === 'voting' ? <>
+      {hangout.secondsLeft != null && <VoteTimer secondsLeft={hangout.secondsLeft} onEnd={onChange} />}
       <p className="hangout-question">{t("Who's paying?")} <small>{t('{voted} of {total} voted', { voted: hangout.voteCount, total: hangout.members.length })}</small></p>
       <div className="vote-options" role="group" aria-label={t('Your vote')}>{choices.map(c => <button key={c} type="button" aria-pressed={hangout.myVote === c} disabled={!!busy} onClick={() => vote(c)}>{choiceLabel(c)}</button>)}</div>
       <ul className="vote-members">{hangout.members.map(m => <li key={m.id} className={m.voted ? 'voted' : ''}>{m.id === user.id ? t('You') : m.name}{m.voted && <CheckCircle2 size={12} />}</li>)}</ul>

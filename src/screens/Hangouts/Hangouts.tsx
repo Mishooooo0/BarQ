@@ -75,8 +75,10 @@ export function Hangouts() {
 
   const group = groups.data?.find(g => g.id === groupId);
   // A hangout ends when everyone who owed has paid; it then moves from Active to History.
-  const active = hangouts.data?.filter(h => h.status !== 'settled') ?? null;
-  const history = hangouts.data?.filter(h => h.status === 'settled') ?? null;
+  // Paid and canceled hangouts have ended and are the group's history.
+  const ended = (h: Hangout) => h.status === 'settled' || h.status === 'canceled';
+  const active = hangouts.data?.filter(h => !ended(h)) ?? null;
+  const history = hangouts.data?.filter(ended) ?? null;
   const outside = group ? directory.filter(d => !group.members.some(m => m.id === d.id)) : [];
   return <><DetailHeader title={t('Hangouts')} fallback="/" /><div className="detail-content analyst-content">
     <section className="analyst-hero" aria-live="polite"><AnalystSprite pose={pose} /><p className="analyst-bubble">{speech}</p></section>
@@ -109,9 +111,9 @@ export function Hangouts() {
           <button role="tab" aria-selected={view === 'history'} aria-pressed={view === 'history'} onClick={() => setView('history')}>{history ? t('History ({count})', { count: history.length }) : t('History')}</button>
         </div>
         {view === 'active' ? <>
-          <p className="fine-print">{t('One "I will pay it" pays. Two or more play three games, each on their own phone: Flappy Bird first, then two at random. The highest total pays. Otherwise the most votes win, and a tie means everyone pays their own.')}</p>
+          <p className="fine-print">{t('Everyone has 2 minutes to vote, or the hangout is canceled. One "I will pay it" pays. Two or more play three games, each on their own phone: Flappy Bird first, then two at random. The highest total pays. Otherwise the most votes win, and a tie means everyone pays their own.')}</p>
           <HangoutVotes hangouts={active} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} onPaid={setPaid} empty={t("No active hangouts. Plan one above, then ask the group who's paying.")} />
-        </> : <HangoutVotes hangouts={history} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} empty={t('Finished hangouts appear here once everyone has paid.')} />}
+        </> : <HangoutVotes hangouts={history} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} empty={t('Finished hangouts appear here once everyone has paid, and canceled ones when the vote runs out of time.')} />}
       </section>
     </>}
     <MockNote />

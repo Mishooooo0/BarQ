@@ -422,6 +422,42 @@ test('scenario 2: two "I will pay it" play three games and the highest total pay
   assert.equal((await call('POST', `/api/hangouts/${hangout.id}/pay`, { token: t['abdullah-s'] })).body.hangout.status, 'settled');
 });
 
+test('a vote has 2 minutes; when they run out the hangout is canceled and ends', async () => {
+  const t = await tokens();
+  const hangout = await startHangout(t.meshal);
+  assert.ok(Math.abs(Date.parse(hangout.expiresAt) - Date.parse(hangout.createdAt) - 120_000) < 1000);
+  assert.ok(hangout.secondsLeft > 110 && hangout.secondsLeft <= 120);
+  await vote(t.sultana, hangout.id, 'split');
+  // The two minutes pass.
+  const expiredAt = new Date(Date.now() - 1000).toISOString();
+  update('games', db => { db.hangouts.find(h => h.id === hangout.id).expiresAt = expiredAt; });
+  const listed = (await call('GET', '/api/hangouts', { token: t.sultana })).body.find(h => h.id === hangout.id);
+  assert.deepEqual([listed.status, listed.endedAt, listed.expiresAt, listed.secondsLeft, listed.result, listed.dues], ['canceled', expiredAt, null, null, null, []]);
+  const late = await call('POST', `/api/hangouts/${hangout.id}/vote`, { token: t.rasel, body: { choice: 'pay' } });
+  assert.deepEqual([late.status, late.body.error], [409, 'The 2 minutes to vote ran out, so this hangout was canceled.']);
+  assert.equal((await call('POST', `/api/hangouts/${hangout.id}/close`, { token: t.meshal })).status, 409);
+  assert.equal((await call('POST', `/api/hangouts/${hangout.id}/pay`, { token: t.meshal })).status, 409);
+});
+
+test('a vote that times out is canceled even if nobody opens the list first', async () => {
+  const t = await tokens();
+  const hangout = await startHangout(t.meshal);
+  update('games', db => { db.hangouts.find(h => h.id === hangout.id).expiresAt = new Date(Date.now() - 1000).toISOString(); });
+  const late = await call('POST', `/api/hangouts/${hangout.id}/vote`, { token: t.sultana, body: { choice: 'split' } });
+  assert.equal(late.status, 409);
+  const { read } = await import('./db.mjs');
+  assert.equal(read('games').hangouts.find(h => h.id === hangout.id).status, 'canceled');
+});
+
+test('hangouts started before the 2-minute rule keep their vote open', async () => {
+  const t = await tokens();
+  const hangout = await startHangout(t.meshal);
+  update('games', db => { const stored = db.hangouts.find(h => h.id === hangout.id); delete stored.expiresAt; stored.createdAt = new Date(Date.now() - 3_600_000).toISOString(); });
+  const listed = (await call('GET', '/api/hangouts', { token: t.meshal })).body.find(h => h.id === hangout.id);
+  assert.deepEqual([listed.status, listed.secondsLeft], ['voting', null]);
+  assert.equal((await call('POST', `/api/hangouts/${hangout.id}/vote`, { token: t.sultana, body: { choice: 'split' } })).status, 200);
+});
+
 test('scenario 3: a tie between split and own means everyone pays their own', async () => {
   const t = await tokens();
   const hangout = await startHangout(t.sultana);
@@ -497,6 +533,22 @@ test('occasions are validated', async () => {
   assert.equal((await call('PUT', '/api/occasions/nope', { token, body: { budget: 100 } })).status, 404);
   const renamed = (await call('PUT', `/api/occasions/${party.id}`, { token, body: { title: 'Big dinner', budget: 800 } })).body;
   assert.deepEqual([renamed.title, renamed.budget, renamed.lines.length], ['Big dinner', 800, party.lines.length]);
+});
+
+test('when Barq cannot answer, an occasion still gets the standard split and its saving plan', async () => {
+  const token = await login('abdullah-s');
+  const eid = (await call('POST', '/api/occasions', { token, body: { type: 'eid-fitr', budget: 444 } })).body;
+  for (const language of ['ar', 'en']) {
+    const { status, body } = await call('POST', `/api/occasions/${eid.id}/plan`, { token, language });
+    assert.equal(status, 200);
+    assert.equal(body.source, 'standard');
+    assert.match(body.fallbackReason, /unusable/);
+    assert.deepEqual(body.lines.map(l => [l.label, l.amount]), [['Eid clothes', 177], ['Sweets, dates and coffee', 88], ['Family gathering', 118], ['Gifts', 59]]);
+    assert.ok(body.total <= body.available && body.available === 444);
+    const occasion = (await call('GET', '/api/occasions', { token })).body.find(o => o.id === eid.id);
+    assert.deepEqual(body.saving, { ...occasion.saving, tip: '' });
+  }
+  await call('DELETE', `/api/occasions/${eid.id}`, { token });
 });
 
 test('every occasion has a saving plan per day, week and month until the date', async () => {

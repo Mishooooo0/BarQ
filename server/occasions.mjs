@@ -1,5 +1,6 @@
 // Occasions: budgets for Eid al-Fitr, Eid al-Adha, graduations, home parties and holiday trips, with an Eidia list
 // for the two Eids. Stored on each user in the Users database. Barq (server/ai.mjs) can suggest how to split a budget.
+import { AiError } from './ai.mjs';
 import { addDays, dayKey, daysBetween } from './time.mjs';
 
 // Each type starts with suggested lines as a share (%) of the budget. The Eid lines leave a quarter for Eidia.
@@ -120,15 +121,19 @@ const SUGGESTION = {
 /**
  * Asks Barq to split the part of the budget not already promised as Eidia, and to explain the saving plan (per day and
  * per month until the date). Amounts are whole riyals and are scaled down if the answer goes over, so the suggestion
- * always fits the budget; the saving numbers always come from savingPlan(), whatever the answer says.
+ * always fits the budget; the saving numbers always come from savingPlan(), whatever the answer says. When Barq can't
+ * answer (both engines slow or failing), the standard split for the occasion type comes back instead, marked
+ * `source: "standard"`, so planning never just fails.
  */
 export async function suggestPlan(occasion, user, monthSpend, ask, now = new Date()) {
   const view = publicOccasion(occasion, now);
   const available = Math.max(0, Math.floor(occasion.budget - view.totals.eidia));
   const plan = view.saving;
-  const { value, provider, fallbackReason } = await ask({
-    task: 'occasion-plan',
-    instructions: `Plan the budget for this ${view.typeName} in Saudi Arabia. Split the available amount into 3 to 7 practical budget lines (short names, whole riyals) that add up to no more than the available amount. Keep the Eidia already listed as it is. Add a short note to a line only when it helps (for example, when to buy). Write a one-sentence message and 2 or 3 short, specific tips about the lines (what to buy early, where to save). Fill "saving" with perDay and perMonth exactly as given in DATA.savingPlan and a one-sentence tip on how to put that much aside until the date (for example from each salary or into the Saving box). Pick a pose: celebrate or thumbs when the budget is comfortable, think when it is tight.`,
+  let answer;
+  try {
+    answer = await ask({
+    task: 'occasion-plan', patient: true,
+    instructions: `Plan the budget for this ${view.typeName} in Saudi Arabia. Split the available amount into 3 to 6 practical budget lines (short names of 1 to 3 words, whole riyals) that add up to no more than the available amount. Keep the Eidia already listed as it is. Add a short note (under 8 words) to at most two lines, only when it helps (for example, when to buy); otherwise use null. Write a one-sentence message and 2 short, specific tips about the lines (what to buy early, where to save). Fill "saving" with perDay and perMonth exactly as given in DATA.savingPlan and a one-sentence tip on how to put that much aside until the date (for example from each salary or into the Saving box). Pick a pose: celebrate or thumbs when the budget is comfortable, think when it is tight.`,
     schema: SUGGESTION,
     data: {
       occasion: view.typeName, occasionInArabic: findType(occasion.type)?.nameAr ?? view.typeName, title: occasion.title, date: occasion.date, today: dayKey(now), daysLeft: view.daysLeft, budget: occasion.budget,
@@ -138,7 +143,7 @@ export async function suggestPlan(occasion, user, monthSpend, ask, now = new Dat
     },
     validate: raw => {
       if (!Array.isArray(raw.lines)) throw new Error('lines must be a list');
-      let lines = raw.lines.filter(l => l && typeof l.label === 'string' && l.label.trim() && Number.isFinite(l.amount) && l.amount > 0).slice(0, 7)
+      let lines = raw.lines.filter(l => l && typeof l.label === 'string' && l.label.trim() && Number.isFinite(l.amount) && l.amount > 0).slice(0, 6)
         .map(l => ({ label: l.label.trim().slice(0, 40), amount: Math.round(l.amount), note: typeof l.note === 'string' && l.note.trim() ? l.note.trim().slice(0, 140) : null }));
       if (!lines.length && available > 0) throw new Error('no lines');
       const total = lines.reduce((t, l) => t + l.amount, 0);
@@ -148,8 +153,22 @@ export async function suggestPlan(occasion, user, monthSpend, ask, now = new Dat
       if (!raw.saving || typeof raw.saving.tip !== 'string' || !raw.saving.tip.trim()) throw new Error('missing saving tip');
       return { message: raw.message.trim().slice(0, 300), pose: POSES.includes(raw.pose) ? raw.pose : 'idea', lines, tips, savingTip: raw.saving.tip.trim().slice(0, 240) };
     },
-  });
+    });
+  } catch (error) {
+    if (!(error instanceof AiError)) throw error;
+    console.warn(`[barq ai] occasion-plan: using the standard split (${error.message})`);
+    const lines = standardLines(findType(occasion.type), available);
+    return { message: '', pose: 'think', lines, tips: [], saving: { ...plan, tip: '' }, total: lines.reduce((t, l) => t + l.amount, 0), available, source: 'standard', fallbackReason: error.message };
+  }
+  const { value, provider, fallbackReason } = answer;
   const total = value.lines.reduce((t, l) => t + l.amount, 0);
   const { savingTip, ...rest } = value;
   return { ...rest, saving: { ...plan, tip: savingTip }, total, available, source: provider, fallbackReason: fallbackReason ?? null };
+}
+
+/** The occasion type's starting lines, shared out over the whole available amount (whole riyals, never over it). */
+function standardLines(type, available) {
+  if (!type) return [];
+  const shares = type.lines.reduce((total, [, share]) => total + share, 0);
+  return type.lines.map(([label, share]) => ({ label, amount: Math.floor(available * share / shares), note: null })).filter(line => line.amount > 0);
 }

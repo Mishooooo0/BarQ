@@ -46,5 +46,5 @@ export function PlanView({ items, footer }: { items: PlanItem[]; footer: React.R
 
 /** Users know the assistant as Barq; the backup engine answers when the main one is slow or unavailable. */
 export function AnsweredBy({ info }: { info: AiSource }) {
-  return <p className="fine-print ai-source">{info.source === 'ring' ? t('Answered by Barq AI (backup engine, because the main one was slow or unavailable).') : t('Answered by Barq AI.')}</p>;
+  return <p className="fine-print ai-source">{info.source === 'standard' ? t('Standard split: Barq could not answer right now. Try again later for a personal plan.') : info.source === 'ring' ? t('Answered by Barq AI (backup engine, because the main one was slow or unavailable).') : t('Answered by Barq AI.')}</p>;
 }

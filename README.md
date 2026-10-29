@@ -116,7 +116,7 @@ Facts and candidate places are computed in [`server/analyst.mjs`](server/analyst
 
 ## Who's paying? (hangout votes)
 
-After the analyst plans a hangout on the **Hangouts** page, tap **Ask the group: who's paying?**. Every member of the group votes from their own phone (Hangouts page) for one of three choices: **Split the bill**, **Everyone pays their own**, or **I will pay it**. Votes stay hidden until the vote ends, which happens when everyone has voted or when the person who started it ends it early.
+After the analyst plans a hangout on the **Hangouts** page, tap **Ask the group: who's paying?**. Every member of the group votes from their own phone (Hangouts page) for one of three choices: **Split the bill**, **Everyone pays their own**, or **I will pay it**. Votes stay hidden until the vote ends, which happens when everyone has voted or when the person who started it ends it early. The group has **2 minutes** to vote (a countdown shows on the card); if the vote is still open when they run out, the hangout is **canceled** and moves to History.
 
 | Votes | Result |
 | --- | --- |
@@ -137,7 +137,7 @@ Open **Occasions** from Home or More → Explore to prepare a budget for **Eid a
 - for the two Eids, keep an **Eidia** list: who you give to, how much, and tick each one when given;
 - see the budget, what is planned and what is left (or how much it is over);
 - see the **saving plan**: what is not bought or given yet, spread over the days left, as an amount per day and per month (a started month counts as a month);
-- tap **Split my budget** and Barq suggests lines and tips for the part of the budget not already promised as Eidia. Its amounts are always scaled to fit the budget, and its structured answer includes the saving plan (per day and per month) with a tip on how to put it aside; the numbers always come from the server's own calculation. **Use this split** replaces the lines and keeps the Eidia list.
+- tap **Split my budget** and Barq suggests lines and tips for the part of the budget not already promised as Eidia. Its amounts are always scaled to fit the budget, and its structured answer includes the saving plan (per day and per month) with a tip on how to put it aside; the numbers always come from the server's own calculation. These answers are long (about a minute in Arabic), so the server waits longer for the main engine and keeps the whole request within its time budget; if Barq still can't answer, the **standard split** for the occasion type comes back instead, clearly marked, with the same saving plan. **Use this split** replaces the lines and keeps the Eidia list.
 
 The rules and templates are in [`server/occasions.mjs`](server/occasions.mjs).
 

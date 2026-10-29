@@ -245,3 +245,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** Points are added as each game counts them, so Reaction and Precision (up to 500) weigh more in a total than Number Order (up to 150).
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-29 17:53 (Asia/Riyadh)
+
+**Update:** Fixed occasion plans failing (always in Arabic). Cause, found with the real AI: an occasion plan is a long answer; Claude-Dev needs about a minute for it in Arabic but was given 25 seconds, and the Ring API fallback mostly fails on it (HTTP 503 with an empty body after about a minute, 3 of 4 tries). Claude-Dev also sometimes returns a long Arabic reply with its start cut off, and it repeats its earlier reply for an identical prompt, so one broken answer kept coming back for the same occasion. Fixes in `server/ai.mjs` and `server/occasions.mjs`: occasion plans wait up to 105 seconds for Claude-Dev, and all their AI calls together stay within 165 seconds (under the app's 3-minute wait); every AI prompt carries a request id, so each request and retry gets a fresh answer; the answer asked for is shorter; retries are logged; and when Barq still can't answer, the standard split for the occasion type comes back with the saving plan, clearly marked in the app ("standard split"), instead of an error. Added the hangout vote timer: when someone asks the group who's paying, the group has 2 minutes to vote (a live countdown on the card); if the vote is still open when time runs out, the hangout is canceled and moves to History as canceled. Hangouts started before this change keep their open vote.
+
+**Validation:** Reproduced the failure live and confirmed the fix with the real AI: the previously stuck Arabic occasion now gets a complete Arabic plan on the first try (67 seconds), English in 68 seconds. 40 backend tests passed (new: the standard split when Barq can't answer, in Arabic and English; the 2-minute timer cancels a vote, refuses late votes, works without anyone opening the list, and leaves older hangouts alone) plus 4 dictionary checks. 37 Playwright tests passed (new: the Arabic occasion plan with the standard split end to end; the vote countdown and a timed-out hangout moving to History as canceled).
+
+**Open items:** None.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

@@ -13,6 +13,8 @@ function answer(prompt) {
   const retry = prompt.includes('Your previous reply was unusable');
   const arabic = data.language === 'Arabic';
   // Occasion plans deliberately add up to 110% of what is available, to test that the server scales them down.
+  // A budget of 444 always gets an unusable answer, to test the standard split.
+  if (task === 'occasion-plan' && data.budget === 444) return 'Sorry, I cannot plan this.';
   if (task === 'occasion-plan') return arabic
     ? { message: `خطة تجريبية لـ${data.occasionInArabic}.`, pose: 'thumbs', lines: [['ملابس', 0.5], ['أكل', 0.3], ['هدايا', 0.3]].map(([label, share]) => ({ label, amount: Math.round(data.available * share), note: null })), tips: ['اشتر الملابس بدري.'], saving: { perDay: data.savingPlan.perDay + 1, perMonth: data.savingPlan.perMonth + 1, tip: 'حطها في الحصّالة أول ما ينزل الراتب.' } }
     : { message: `Fake plan for ${data.occasion}.`, pose: 'thumbs', lines: [['Clothes', 0.5], ['Food', 0.3], ['Gifts', 0.3]].map(([label, share]) => ({ label, amount: Math.round(data.available * share), note: null })), tips: ['Buy the clothes early.'], saving: { perDay: data.savingPlan.perDay + 1, perMonth: data.savingPlan.perMonth + 1, tip: 'Move it to the Saving box on payday.' } };

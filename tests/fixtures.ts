@@ -23,6 +23,12 @@ export function addGroup(id: string, name: string, members: string[]) {
   update('users', (db: UsersDb) => { db.groups.push({ id, name, members }); });
 }
 
+type GamesDb = { hangouts: { id: string; expiresAt?: string }[] };
+/** Makes a hangout's 2-minute vote run out now. */
+export function expireVote(hangoutId: string) {
+  update('games', (db: GamesDb) => { db.hangouts.find(h => h.id === hangoutId)!.expiresAt = new Date(Date.now() - 1000).toISOString(); });
+}
+
 export async function signIn(page: Page, id = 'meshal') {
   const { name, pin } = account(id);
   await page.goto('/');

@@ -18,7 +18,7 @@ export interface Insights {
   subscriptions: { seller: string; category: CategoryId; amount: number; nextDue: string; daysLeft: number }[];
 }
 /** Written by the AI (shown to users as Barq) from the insights. */
-export type AiSource = { source: 'claude' | 'ring'; fallbackReason: string | null };
+export type AiSource = { source: 'claude' | 'ring' | 'standard'; fallbackReason: string | null };
 export interface Advice extends AiSource { headline: string; tips: string[]; pose: Pose; }
 /** A record in the Payments database. */
 export interface Payment { id: string; name: string; price: number; category: string; categoryId: CategoryId; date: string; placeId: string; createdAt: string; }
@@ -33,9 +33,11 @@ export type VoteChoice = 'split' | 'own' | 'pay';
 export interface Hangout {
   id: string; groupId: string; groupName: string; createdBy: string; createdByName: string; createdAt: string;
   items: { time: string; label: string; placeId: string; name: string; category: CategoryId; estimate: number }[];
-  perPerson: number; billAmount: number; status: 'voting' | 'playing' | 'decided' | 'settled'; sessionId: string | null;
+  perPerson: number; billAmount: number; status: 'voting' | 'playing' | 'decided' | 'settled' | 'canceled'; sessionId: string | null;
   /** When everyone who owed has paid; ended hangouts move to History. */
   endedAt: string | null;
+  /** While voting: when the 2 minutes run out, and how many seconds were left when the server answered. */
+  expiresAt: string | null; secondsLeft: number | null;
   members: { id: string; name: string; voted: boolean }[]; votes: Record<string, VoteChoice> | null; myVote: VoteChoice | null; voteCount: number;
   result: { outcome: 'volunteer' | 'game' | 'split' | 'own'; label: string; payer: string | null; payerName: string | null; players: { id: string; name: string }[] | null; tally: Record<VoteChoice, number> } | null;
   dues: { userId: string; name: string; amount: number; paid: boolean }[];

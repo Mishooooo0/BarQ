@@ -90,7 +90,7 @@ export function OccasionDetail() {
     catch (e) { setSaveError(errorMessage(e)); }
   };
 
-  const speech = plan.loading ? t('Splitting your budget… this can take up to a minute.') : plan.error ? plan.error : plan.data ? digits(plan.data.message)
+  const speech = plan.loading ? t('Splitting your budget… this can take up to two minutes.') : plan.error ? plan.error : plan.data ? (plan.data.source === 'standard' ? t('Barq is busy right now, so here is the standard split for this occasion. Tap the button again later for a personal plan.') : digits(plan.data.message))
     : o.past ? t('This occasion has passed. Keep it for reference or delete it.')
     : o.totals.over ? t("You've planned {amount} more than the budget. Lower a line or raise the budget.", { amount: sar(o.totals.planned - o.budget) })
     : o.saving.amount > 0 ? t('Put aside {day} a day, or {month} a month, to have the rest of the budget by {date}.', { day: sar(o.saving.perDay), month: sar(o.saving.perMonth), date: formatDay(o.date) })
@@ -147,10 +147,10 @@ export function OccasionDetail() {
       <button type="button" className="primary-button" onClick={runPlan} disabled={plan.loading}>{plan.loading ? t('Planning…') : o.hasEidia ? t('Split the rest of my budget') : t('Split my budget')}</button>
       {plan.error && <ErrorState message={plan.error} onRetry={runPlan} />}
       {plan.data && !plan.error && <div className="info-panel">
-        <h3>{tn("Barq's split of {amount}", { amount: <Money amount={plan.data.available} /> })}</h3>
-        <ul className="suggested-lines">{plan.data.lines.map(l => <li key={l.label}><span><bdi>{l.label}</bdi>{l.note && <small>{digits(l.note)}</small>}</span><Money amount={l.amount} /></li>)}</ul>
+        <h3>{tn(plan.data.source === 'standard' ? 'Standard split of {amount}' : "Barq's split of {amount}", { amount: <Money amount={plan.data.available} /> })}</h3>
+        <ul className="suggested-lines">{plan.data.lines.map(l => <li key={l.label}><span><bdi>{knownText(l.label)}</bdi>{l.note && <small>{digits(l.note)}</small>}</span><Money amount={l.amount} /></li>)}</ul>
         {plan.data.tips.length > 0 && <ul className="tip-list">{plan.data.tips.map(tip => <li key={tip}>{digits(tip)}</li>)}</ul>}
-        {plan.data.saving.amount > 0 && <><SavingPlanView plan={plan.data.saving} /><p className="saving-tip">{digits(plan.data.saving.tip)}</p></>}
+        {plan.data.saving.amount > 0 && <><SavingPlanView plan={plan.data.saving} />{plan.data.saving.tip && <p className="saving-tip">{digits(plan.data.saving.tip)}</p>}</>}
         <button type="button" className="primary-button" onClick={() => applyPlan(plan.data!)}>{t('Use this split')}</button>
         <p className="fine-print">{t('Replaces your budget lines. Your Eidia list stays as it is.')}</p>
         <AnsweredBy info={plan.data} />

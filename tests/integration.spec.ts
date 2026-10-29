@@ -1,4 +1,4 @@
-import { addGroup, apiToken, expect, fund, signIn, test } from './fixtures';
+import { addGroup, apiToken, expect, expireVote, fund, signIn, test } from './fixtures';
 
 test('places dataset is reachable through the UI', async ({ page }) => {
   await signIn(page);
@@ -232,6 +232,24 @@ test('who pays: two volunteers play three games, Flappy Bird first, and the high
   await expect(page.getByText('Highest total: 88 points.')).toBeVisible();
   await page.getByRole('link', { name: 'Back to Hangouts' }).click();
   await expect(page.locator('.hangout-card').first().locator('.hangout-result')).toHaveText('Sultana pays the bill');
+});
+
+test('who pays: the vote has a 2-minute timer, and the hangout is canceled when it runs out', async ({ page }) => {
+  fund('meshal', 500);
+  await signIn(page);
+  const card = await planAndAsk(page);
+  await expect(card.getByRole('timer')).toHaveText(/^[12]:[0-5]\d left to vote$/);
+  await card.getByRole('button', { name: 'Split the bill' }).click();
+  const meshal = await apiToken(page, 'meshal');
+  const list = await (await page.request.get('/api/hangouts', { headers: { authorization: `Bearer ${meshal}` } })).json();
+  expireVote(list[0].id);
+  // The list refreshes by itself (every 10 seconds) and the card leaves Active.
+  await expect(page.locator('.hangout-card')).toHaveCount(0, { timeout: 15_000 });
+  await page.getByRole('tab', { name: /History/ }).click();
+  const canceled = page.locator('.hangout-card').first();
+  await expect(canceled.locator('.hangout-status')).toHaveText('Canceled');
+  await expect(canceled).toContainText('The 2 minutes to vote ran out, so this hangout was canceled.');
+  await expect(canceled.locator('.hangout-date')).toContainText('Ended');
 });
 
 test('who pays: a split/own tie ends as everyone pays their own', async ({ page }) => {

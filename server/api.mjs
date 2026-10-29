@@ -236,13 +236,25 @@ route('POST', '/api/groups/:id/members', async ({ req, params }) => {
 });
 
 // Hangouts: after planning, the group votes on who pays (server/hangouts.mjs has the rules).
+// The group has two minutes to vote; a vote still open after that is canceled. Hangouts started before this rule have
+// no expiresAt and are not affected.
+export const VOTE_WINDOW_MS = 2 * 60 * 1000;
+const voteExpired = (h, now) => h.status === 'voting' && !!h.expiresAt && Date.parse(h.expiresAt) <= now.getTime();
+/** Cancels the votes that ran out of time. Saves only when something changed. */
+function expireVotes(now) {
+  if (!(read('games').hangouts ?? []).some(h => voteExpired(h, now))) return;
+  update('games', db => { for (const h of db.hangouts ?? []) if (voteExpired(h, now)) { h.status = 'canceled'; h.canceledAt = h.expiresAt; } });
+}
+
 function publicHangout(h, users, me) {
   const name = uid => users.find(u => u.id === uid)?.name ?? uid;
   const owed = dues(h).map(d => ({ ...d, name: name(d.userId), paid: !!h.paid?.[d.userId] }));
   return {
     id: h.id, groupId: h.groupId, groupName: h.groupName, createdBy: h.createdBy, createdByName: name(h.createdBy), createdAt: h.createdAt,
     items: h.items, perPerson: h.perPerson, billAmount: h.billAmount, status: h.status, sessionId: h.sessionId ?? null,
-    endedAt: h.status === 'settled' ? h.settledAt ?? h.closedAt ?? h.createdAt : null,
+    endedAt: h.status === 'settled' ? h.settledAt ?? h.closedAt ?? h.createdAt : h.status === 'canceled' ? h.canceledAt ?? h.expiresAt ?? h.createdAt : null,
+    expiresAt: h.status === 'voting' ? h.expiresAt ?? null : null,
+    secondsLeft: h.status === 'voting' && h.expiresAt ? Math.max(0, Math.ceil((Date.parse(h.expiresAt) - Date.now()) / 1000)) : null,
     members: h.members.map(uid => ({ id: uid, name: name(uid), voted: uid in h.votes })), votes: h.status === 'voting' ? null : Object.fromEntries(Object.entries(h.votes).map(([uid, c]) => [uid, c])),
     myVote: h.votes[me] ?? null, voteCount: Object.keys(h.votes).length,
     result: h.result ? { ...h.result, label: h.result.outcome === 'volunteer' || (h.result.outcome === 'game' && h.result.payer) ? `${name(h.result.payer)} pays the bill` : h.result.outcome === 'game' ? `${h.result.players.map(name).join(' vs ')}: the highest total pays` : CHOICE_LABELS[h.result.outcome], players: h.result.players?.map(uid => ({ id: uid, name: name(uid) })) ?? null, payerName: h.result.payer ? name(h.result.payer) : null } : null,
@@ -264,7 +276,7 @@ const groupFor = (users, groupId, me) => {
   return group;
 };
 route('GET', '/api/hangouts', ({ req, url }) => {
-  const id = currentUserId(req); const users = read('users');
+  const id = currentUserId(req); expireVotes(new Date()); const users = read('users');
   const mine = users.groups.filter(g => g.members.includes(id)).map(g => g.id);
   const groupId = url.searchParams.get('groupId');
   // Up to the last 50 hangouts (the stored limit); finished ones are the group's history.
@@ -286,18 +298,19 @@ route('POST', '/api/hangouts', async ({ req }) => {
   const perPerson = cents(items.reduce((total, item) => total + item.estimate, 0));
   return update('games', db => {
     db.hangouts ??= [];
-    const hangout = { id: `hangout-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, groupId: group.id, groupName: group.name, createdBy: id, createdAt: now.toISOString(), items, perPerson, billAmount: cents(perPerson * group.members.length), members: [...group.members], votes: {}, status: 'voting', result: null, sessionId: null, paid: {} };
+    const hangout = { id: `hangout-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, groupId: group.id, groupName: group.name, createdBy: id, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + VOTE_WINDOW_MS).toISOString(), items, perPerson, billAmount: cents(perPerson * group.members.length), members: [...group.members], votes: {}, status: 'voting', result: null, sessionId: null, paid: {} };
     db.hangouts.unshift(hangout);
     db.hangouts.length = Math.min(db.hangouts.length, 50);
     return publicHangout(hangout, users.users, id);
   });
 });
 route('POST', '/api/hangouts/:id/vote', async ({ req, params }) => {
-  const body = await readBody(req); const id = currentUserId(req); const now = new Date(); const users = read('users');
+  const body = await readBody(req); const id = currentUserId(req); const now = new Date(); expireVotes(now); const users = read('users');
   if (!CHOICES.includes(body.choice)) fail(400, 'Choose split, own or pay.');
   return update('games', db => {
     const hangout = (db.hangouts ?? []).find(h => h.id === params.id) ?? fail(404, 'Hangout not found.');
     if (!hangout.members.includes(id)) fail(403, 'You are not in this group.');
+    if (hangout.status === 'canceled') fail(409, 'The 2 minutes to vote ran out, so this hangout was canceled.');
     if (hangout.status !== 'voting') fail(409, 'The vote has ended.');
     hangout.votes[id] = body.choice;
     if (hangout.members.every(uid => uid in hangout.votes)) closeVote(db, hangout, now);
@@ -305,10 +318,11 @@ route('POST', '/api/hangouts/:id/vote', async ({ req, params }) => {
   });
 });
 route('POST', '/api/hangouts/:id/close', ({ req, params }) => {
-  const id = currentUserId(req); const now = new Date(); const users = read('users');
+  const id = currentUserId(req); const now = new Date(); expireVotes(now); const users = read('users');
   return update('games', db => {
     const hangout = (db.hangouts ?? []).find(h => h.id === params.id) ?? fail(404, 'Hangout not found.');
     if (hangout.createdBy !== id) fail(403, 'Only the person who started the vote can end it.');
+    if (hangout.status === 'canceled') fail(409, 'The 2 minutes to vote ran out, so this hangout was canceled.');
     if (hangout.status !== 'voting') fail(409, 'The vote has already ended.');
     if (!Object.keys(hangout.votes).length) fail(409, 'Nobody has voted yet.');
     closeVote(db, hangout, now);

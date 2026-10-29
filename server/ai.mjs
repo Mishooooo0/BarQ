@@ -5,6 +5,7 @@
 // Claude-Dev is sent the same schema (output_config) but has ignored it so far, so every answer is also parsed and
 // validated here, and rejected if it is not in the language the user chose (English or Arabic). The assistant is
 // presented to users as "Barq".
+import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 
 export class AiError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -22,6 +23,13 @@ const ringConfig = () => ({
   model: process.env.RING_API_MODEL || 'ring-fast',
   timeoutMs: Number(process.env.RING_API_TIMEOUT_MS) || 60_000,
 });
+// Long answers (an occasion plan, especially in Arabic) take Claude-Dev about a minute; the Ring API often fails on them
+// (HTTP 503 after a minute), so those requests wait longer for Claude-Dev before falling back. All their calls together
+// stay within PATIENT_BUDGET_MS, under the app's 3-minute wait (AI_TIMEOUT_MS in src/lib/api.ts), so the server always
+// answers first; a call is skipped when less than MIN_CALL_MS is left.
+const PATIENT_TIMEOUT_MS = 105_000;
+const PATIENT_BUDGET_MS = 165_000;
+const MIN_CALL_MS = 10_000;
 export const aiStatus = () => {
   const claude = claudeConfig(); const ring = ringConfig();
   return { configured: !!(claude.apiKey || ring.apiKey), model: claude.model, baseURL: claude.baseURL, claude: !!claude.apiKey, fallback: { configured: !!ring.apiKey, model: ring.model, baseURL: ring.baseURL } };
@@ -75,10 +83,10 @@ export function parseJsonObject(text) {
 }
 
 /** One Claude-Dev request; returns the reply text. Transport failures throw AiError. */
-async function askClaude(prompt, schema, task, language) {
+async function askClaude(prompt, schema, task, language, limitMs) {
   const { model } = claudeConfig();
   let response;
-  try { response = await claude().messages.create({ model, max_tokens: 2000, system: system(language), messages: [{ role: 'user', content: prompt }], output_config: { format: { type: 'json_schema', schema } } }); }
+  try { response = await claude().messages.create({ model, max_tokens: 2000, system: system(language), messages: [{ role: 'user', content: prompt }], output_config: { format: { type: 'json_schema', schema } } }, { timeout: limitMs }); }
   catch (error) {
     if (error instanceof Anthropic.APIConnectionTimeoutError) throw new AiError(504, 'Claude-Dev took too long to answer.');
     if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) throw new AiError(502, 'Claude-Dev rejected the API key.');
@@ -92,12 +100,12 @@ async function askClaude(prompt, schema, task, language) {
 }
 
 /** One Ring API request (OpenAI chat completions, as The Ring's provider uses it) with an enforced JSON schema. */
-async function askRing(prompt, schema, task, language) {
-  const { apiKey, baseURL, model, timeoutMs } = ringConfig();
+async function askRing(prompt, schema, task, language, limitMs) {
+  const { apiKey, baseURL, model } = ringConfig();
   let response;
   try {
     response = await fetch(`${baseURL}/chat/completions`, {
-      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(timeoutMs),
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(limitMs),
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model, stream: false, response_format: { type: 'json_schema', json_schema: { name: schemaName(task), strict: true, schema } }, messages: [{ role: 'system', content: system(language) }, { role: 'user', content: prompt }] }),
     });
@@ -112,16 +120,27 @@ async function askRing(prompt, schema, task, language) {
   return { text: typeof content === 'string' ? content : '', toolUse: false };
 }
 
-/** Asks one provider, retrying once if the reply is not usable JSON in the chosen language. Returns the validated value or throws. */
-async function attempt(ask, prompt, schema, task, validate, language) {
+/**
+ * Asks one provider, retrying once if the reply is not usable JSON in the chosen language. `limit()` gives each call its
+ * time limit, or null when there is no time left for it. Returns the validated value or throws.
+ */
+async function attempt(ask, name, prompt, schema, task, validate, language, limit) {
   let problem = 'no JSON object in the reply';
   for (let i = 0; i < 2; i++) {
-    const { text, toolUse } = await ask(i === 0 ? prompt : `${prompt}\n\nYour previous reply was unusable (${problem}). Reply with only the JSON object, in ${language}.`, schema, task, language);
+    const limitMs = limit();
+    if (limitMs == null) {
+      if (i === 0) throw new AiError(504, `${name} took too long to answer (no time was left to ask it).`);
+      break;
+    }
+    if (i === 1) console.warn(`[barq ai] ${task}: asking ${name} again, the answer was unusable (${problem}).`);
+    const { text, toolUse } = await ask(i === 0 ? prompt : `${prompt}\n\nYour previous reply was unusable (${problem}). Reply with only the JSON object, in ${language}.`, schema, task, language, limitMs);
     const value = parseJsonObject(text);
-    if (!value) { problem = toolUse ? 'it tried to call a tool' : 'no JSON object in the reply'; continue; }
-    if (!inLanguage(value, language)) { problem = `it was not in ${language}`; continue; }
-    try { return validate(value); }
-    catch (error) { problem = error.message; }
+    if (!value) { problem = toolUse ? 'it tried to call a tool' : 'no JSON object in the reply'; }
+    else if (!inLanguage(value, language)) problem = `it was not in ${language}`;
+    else {
+      try { return validate(value); }
+      catch (error) { problem = error.message; }
+    }
   }
   throw new AiError(502, `unusable answer (${problem})`);
 }
@@ -137,22 +156,30 @@ function userReason(problem) {
 
 /**
  * Asks for a JSON object. `task` names the job, `instructions` and `data` describe it, `schema` is shown to the model,
- * `language` ("English" or "Arabic") is the language of every text value, and `validate(object)` must return the
- * cleaned result or throw. Returns `{ value, provider }` where provider is
+ * `language` ("English" or "Arabic") is the language of every text value, `patient` gives a long answer more time on
+ * Claude-Dev (within a total time budget) before the Ring API is tried, and `validate(object)` must return the cleaned
+ * result or throw. Returns `{ value, provider }` where provider is
  * "claude" or "ring", and `fallbackReason` when the Ring API answered because Claude-Dev did not.
  */
-export function askJson({ task, instructions, data, schema, validate, language = 'English' }) {
+export function askJson({ task, instructions, data, schema, validate, language = 'English', patient = false }) {
   if (!LANGUAGES.includes(language)) language = 'English';
+  // The budget starts now, so time spent waiting in the queue counts too.
+  const deadline = patient ? Date.now() + PATIENT_BUDGET_MS : Infinity;
+  const within = ms => { const left = deadline - Date.now(); return left === Infinity ? ms : left < MIN_CALL_MS ? null : Math.min(ms, left); };
+  const claudeLimit = () => within(patient ? Math.max(claudeConfig().timeoutMs, PATIENT_TIMEOUT_MS) : claudeConfig().timeoutMs);
+  const ringLimit = () => within(ringConfig().timeoutMs);
   return serialize(async () => {
     const hasClaude = !!claudeConfig().apiKey; const hasRing = !!ringConfig().apiKey;
     if (!hasClaude && !hasRing) {
       console.warn('[barq ai] Not connected: set CLAUDE_DEV_KEY (and optionally RING_CLOUD_KEY for the Ring API fallback), then restart the server.');
       throw new AiError(503, 'Barq AI is not connected yet. Ask the app owner to add the AI keys (CLAUDE_DEV_KEY).');
     }
-    const prompt = `TASK: ${task}\n${instructions}\nWrite every text value in ${language}.\n\nJSON schema of your reply:\n${JSON.stringify(schema)}\n\nDATA:\n${JSON.stringify({ language, ...data })}`;
+    // Claude-Dev returns its earlier reply for an identical prompt, including a broken one (it sometimes cuts the start
+    // off long Arabic replies). A request id makes every request, and every retry, a fresh answer.
+    const prompt = `TASK: ${task}\nREQUEST: ${randomUUID()}\n${instructions}\nWrite every text value in ${language}.\n\nJSON schema of your reply:\n${JSON.stringify(schema)}\n\nDATA:\n${JSON.stringify({ language, ...data })}`;
     let claudeProblem = 'Claude-Dev is not configured.';
     if (hasClaude) {
-      try { return { value: await attempt(askClaude, prompt, schema, task, validate, language), provider: 'claude' }; }
+      try { return { value: await attempt(askClaude, 'Claude-Dev', prompt, schema, task, validate, language, claudeLimit), provider: 'claude' }; }
       catch (error) {
         if (!(error instanceof AiError)) throw error;
         claudeProblem = error.message.startsWith('unusable') ? `Claude-Dev gave an ${error.message}.` : error.message;
@@ -160,7 +187,7 @@ export function askJson({ task, instructions, data, schema, validate, language =
         console.warn(`[barq ai] ${claudeProblem} Using the Ring API instead.`);
       }
     }
-    try { return { value: await attempt(askRing, prompt, schema, task, validate, language), provider: 'ring', fallbackReason: claudeProblem }; }
+    try { return { value: await attempt(askRing, 'The Ring API', prompt, schema, task, validate, language, ringLimit), provider: 'ring', fallbackReason: claudeProblem }; }
     catch (error) {
       if (!(error instanceof AiError)) throw error;
       const ringProblem = error.message.startsWith('unusable') ? `The Ring API gave an ${error.message}.` : error.message;

@@ -84,6 +84,23 @@ test('occasions, Eidia and the Saving box work in Arabic with Arabic digits', as
   await expect(page.getByRole('progressbar', { name: 'تقدّمك للهدف' })).toHaveAttribute('aria-valuenow', '38');
 });
 
+test("in Arabic, an occasion plan always comes back: Barq's split, or the standard split when Barq cannot answer", async ({ page }) => {
+  await signInArabic(page, 'Sultana', '٤٠٠٤');
+  await page.goto('/occasions');
+  await page.getByRole('radio', { name: 'عيد الفطر' }).click();
+  await page.getByLabel('ميزانية المناسبة').fill('٤٤٤');
+  await page.getByRole('button', { name: 'سوّ الميزانية' }).click();
+  await page.getByRole('button', { name: 'قسّم باقي ميزانيتي' }).click();
+  await expect(page.locator('.analyst-bubble')).toHaveText('برق مشغول الحين، فهذا التقسيم المعتاد لهالمناسبة. اضغط الزر مرة ثانية بعدين وتجيك خطة على كيفك.');
+  const split = page.locator('.info-panel').filter({ hasText: 'التقسيم المعتاد' });
+  await expect(split.locator('.suggested-lines')).toContainText('ملابس العيد');
+  await expect(split.getByRole('region', { name: 'خطة التوفير' })).toContainText('باليوم');
+  await expect(split.locator('.saving-tip')).toHaveCount(0);
+  await expect(split.getByText('تقسيم معتاد: برق ما قدر يجاوب الحين. جرّب بعدين عشان تجيك خطة على كيفك.')).toBeVisible();
+  await split.getByRole('button', { name: 'اعتمد هالتقسيم' }).click();
+  await expect(page.getByRole('list', { name: 'بنود الميزانية' })).toContainText('حلا وتمر وقهوة');
+});
+
 test('in Arabic, groups are "شلة": create one from the Hangouts page', async ({ page }) => {
   await signInArabic(page, 'Sultana', '٤٠٠٤');
   await page.goto('/hangouts');
