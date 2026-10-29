@@ -351,6 +351,22 @@ test('each player plays the three games in order, and the highest total pays the
 
 // --- Who pays? votes ----------------------------------------------------------------------------------------
 
+test('group members vote for a planned place and the winner becomes final', async () => {
+  const host = await login('meshal'); const friend = await login('sultana');
+  const options = (await call('GET', '/api/places?category=cafe&limit=2')).body.items.map(p => ({ placeId: p.record_id, label: p.name, time: '20:00' }));
+  const created = await call('POST', '/api/place-polls', { token: host, body: { groupId: 'barq-developers', options } });
+  assert.equal(created.status, 200);
+  const id = created.body.id;
+  assert.equal((await call('GET', '/api/place-polls?groupId=barq-developers', { token: friend })).body[0].id, id);
+  assert.equal((await call('POST', `/api/place-polls/${id}/vote`, { token: friend, body: { placeId: options[1].placeId } })).body.options[1].votes, 1);
+  assert.equal((await call('POST', `/api/place-polls/${id}/close`, { token: friend })).status, 403);
+  assert.equal((await call('POST', `/api/place-polls/${id}/vote`, { token: host, body: { placeId: options[1].placeId } })).body.options[1].votes, 2);
+  const closed = await call('POST', `/api/place-polls/${id}/close`, { token: host });
+  assert.equal(closed.status, 200);
+  assert.equal(closed.body.winnerId, options[1].placeId);
+  assert.equal((await call('POST', `/api/place-polls/${id}/vote`, { token: friend, body: { placeId: options[0].placeId } })).status, 409);
+});
+
 async function startHangout(token) {
   const places = (await call('GET', '/api/places?category=cafe&limit=2')).body.items;
   const { status, body } = await call('POST', '/api/hangouts', { token, body: { groupId: 'barq-developers', items: places.map((p, i) => ({ time: `2${i}:00`, label: 'Coffee', placeId: p.record_id })) } });

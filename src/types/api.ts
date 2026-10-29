@@ -29,6 +29,11 @@ export interface HangoutPlan extends AiSource {
   perPersonBudget: number; groupSize: number; items: PlanItem[]; perPersonTotal: number; groupTotal: number; message: string; pose: Pose;
 }
 export type VoteChoice = 'split' | 'own' | 'pay';
+export interface PlacePoll {
+  id: string; groupId: string; createdBy: string; createdAt: string; members: string[];
+  options: { placeId: string; name: string; estimate: number; time: string; label: string; votes: number }[];
+  votes: Record<string, string>; myVote: string | null; status: 'voting' | 'decided'; winnerId: string | null;
+}
 /** A planned hangout and its "who pays?" vote. */
 export interface Hangout {
   id: string; groupId: string; groupName: string; createdBy: string; createdByName: string; createdAt: string;

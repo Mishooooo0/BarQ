@@ -9,7 +9,7 @@ import { AnsweredBy, BudgetSlider, PlanView, useRequest, wholeRiyals } from '../
 import { HangoutVotes } from './HangoutVotes';
 import { CreateGroup } from './CreateGroup';
 import { PaymentDone } from '../../components/PaymentDone';
-import type { Group, Hangout, HangoutPlan, Pose } from '../../types/api';
+import type { Group, Hangout, HangoutPlan, PlacePoll, Pose } from '../../types/api';
 import { digits, joinNames, t } from '../../i18n';
 
 /** Hangouts: your groups, the AI plan for an outing, and the group's "who pays?" votes. */
@@ -19,6 +19,9 @@ export function Hangouts() {
   const [plan, planHangout] = useRequest<HangoutPlan>();
   const [groups, loadGroups] = useRequest<Group[]>();
   const [hangouts, loadHangouts] = useRequest<Hangout[]>();
+  const [placePolls, loadPlacePolls] = useRequest<PlacePoll[]>();
+  const [placeBusy, setPlaceBusy] = useState(false);
+  const [placeError, setPlaceError] = useState('');
   const [asking, setAsking] = useState<{ busy: boolean; error: string }>({ busy: false, error: '' });
   const [budgetChoice, setBudgetChoice] = useState(() => wholeRiyals(user.hangoutBudget ?? 100));
   const [groupId, setGroupId] = useState('');
@@ -31,13 +34,15 @@ export function Hangouts() {
   useEffect(() => { void fetchGroups(); }, [fetchGroups]);
   useEffect(() => { if (!groupId && groups.data?.length) setGroupId(groups.data[0].id); }, [groups.data, groupId]);
   const fetchHangouts = useCallback(() => groupId ? loadHangouts(() => api<Hangout[]>(`/api/hangouts?groupId=${encodeURIComponent(groupId)}`)) : Promise.resolve(), [groupId, loadHangouts]);
+  const fetchPlacePolls = useCallback(() => groupId ? loadPlacePolls(() => api<PlacePoll[]>(`/api/place-polls?groupId=${encodeURIComponent(groupId)}`)) : Promise.resolve(), [groupId, loadPlacePolls]);
   // Friends vote from their own phones, so the list refreshes while this page is open.
   useEffect(() => {
     if (!groupId) return;
     void fetchHangouts();
-    const timer = setInterval(() => void fetchHangouts(), 10_000);
+    void fetchPlacePolls();
+    const timer = setInterval(() => { void fetchHangouts(); void fetchPlacePolls(); }, 10_000);
     return () => clearInterval(timer);
-  }, [groupId, fetchHangouts]);
+  }, [groupId, fetchHangouts, fetchPlacePolls]);
   // The budget can never exceed what is in the wallet, including after the balance changes.
   const budget = Math.min(budgetChoice, balance);
 
@@ -46,11 +51,24 @@ export function Hangouts() {
     setUser({ ...user, hangoutBudget: budget });
     return result;
   });
+  const latestPoll = placePolls.data?.[0];
+  const selectedPlace = latestPoll?.status === 'decided' ? latestPoll.options.find(o => o.placeId === latestPoll.winnerId) : null;
+  const placeAction = async (path: string, body?: object) => {
+    if (placeBusy) return;
+    setPlaceBusy(true); setPlaceError('');
+    try { await api<PlacePoll>(path, { method: 'POST', body }); await fetchPlacePolls(); }
+    catch (error) { setPlaceError(errorMessage(error)); }
+    finally { setPlaceBusy(false); }
+  };
+  const startPlaceVote = () => {
+    if (!plan.data) return;
+    void placeAction('/api/place-polls', { groupId: plan.data.group.id, options: plan.data.items.filter(i => i.place).map(i => ({ placeId: i.place!.id, time: i.time, label: i.label })) });
+  };
   const askGroup = async () => {
-    if (!plan.data || asking.busy) return;
+    if (!selectedPlace || asking.busy) return;
     setAsking({ busy: true, error: '' });
     try {
-      await api<Hangout>('/api/hangouts', { method: 'POST', body: { groupId: plan.data.group.id, items: plan.data.items.filter(i => i.place).map(i => ({ time: i.time, label: i.label, placeId: i.place!.id })) } });
+      await api<Hangout>('/api/hangouts', { method: 'POST', body: { groupId, items: [{ time: selectedPlace.time, label: selectedPlace.label, placeId: selectedPlace.placeId }] } });
       setAsking({ busy: false, error: '' });
       void fetchHangouts();
     } catch (error) { setAsking({ busy: false, error: errorMessage(error) }); }
@@ -101,9 +119,22 @@ export function Hangouts() {
         <div className="info-panel per-person"><p>{t('Budget per person everyone can manage')}</p><Money amount={plan.data.perPersonBudget} />{plan.data.pending.length > 0 && <p className="fine-print">{t('Planned without {names}: no budget set yet.', { names: joinNames(plan.data.pending, t(', ')) })}</p>}</div>
         <PlanView items={plan.data.items} footer={<><div><span>{t('Per person')}</span><Money amount={plan.data.perPersonTotal} /></div><div><span>{t('Whole group ({count})', { count: plan.data.groupSize })}</span><Money amount={plan.data.groupTotal} /></div></>} />
         <AnsweredBy info={plan.data} />
-        {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? t('Starting the vote…') : t("Ask the group: who's paying?")}</button>}
+        {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && latestPoll?.status !== 'voting' && <button type="button" className="primary-button" onClick={startPlaceVote} disabled={placeBusy}>{t('Ask the group to vote for a place')}</button>}
         {asking.error && <p className="error-text" role="alert">{asking.error}</p>}
       </>}
+      <section className="analyst-section"><h3>{t('Where should we go?')}</h3>
+        {placePolls.error && <ErrorState message={placePolls.error} onRetry={fetchPlacePolls} />}
+        {placeError && <p className="error-text" role="alert">{placeError}</p>}
+        {latestPoll ? <div className="info-panel">
+          {latestPoll.status === 'decided' && <p className="success-text">{t('Chosen place: {name}', { name: selectedPlace?.name ?? '' })}</p>}
+          {latestPoll.options.map(option => <div key={option.placeId} className="place-vote-option">
+            <span><bdi>{option.name}</bdi> · <Money amount={option.estimate} /> · {t('{count} votes', { count: option.votes })}</span>
+            {latestPoll.status === 'voting' && <button type="button" className="secondary-button" disabled={placeBusy} onClick={() => void placeAction(`/api/place-polls/${latestPoll.id}/vote`, { placeId: option.placeId })}>{latestPoll.myVote === option.placeId ? t('Your vote') : t('Vote')}</button>}
+          </div>)}
+          {latestPoll.status === 'voting' && latestPoll.createdBy === user.id && Object.keys(latestPoll.votes).length > 0 && <button type="button" className="secondary-button" disabled={placeBusy} onClick={() => void placeAction(`/api/place-polls/${latestPoll.id}/close`)}>{t('Finish place vote')}</button>}
+          {selectedPlace && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? t('Starting the vote…') : t("Ask the group: who's paying?")}</button>}
+        </div> : <p className="fine-print">{t('Plan a hangout above, then let everyone choose a place.')}</p>}
+      </section>
       <section className="analyst-section"><h3>{t("Who's paying? Group votes")}</h3>
         {paid != null && <PaymentDone title={t('Payment done')}><Money amount={paid} /><p>{t('Paid from your barq wallet and saved in Payments. Once everyone has paid, the hangout moves to History.')}</p><button type="button" className="secondary-button" onClick={() => setPaid(null)}>{t('Done')}</button></PaymentDone>}
         <div className="filter-tabs hangout-tabs" role="tablist" aria-label={t('Hangouts')}>

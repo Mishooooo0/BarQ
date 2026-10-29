@@ -96,6 +96,7 @@ Tool: Codex — Developer: Codex
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 
+
 ## 2026-10-28 20:17 (Asia/Riyadh)
 
 **Update:** Connected the AI Analyst to Claude through the Claude-Dev endpoint used by The Ring (`https://claudeapikey.dev`, model `claude-haiku-4-5`, key from the `CLAUDE_DEV_KEY` environment variable, never stored in the repo). Added `@anthropic-ai/sdk` and `server/claude.mjs`. The endpoint ignores `output_config` and replaces client tools, so JSON is requested in the prompt and every answer is validated on the server (place ids must exist, prices come from the database, totals stay within budget, one retry). Removed the analyst's canned rule-based headlines, tips and plan picker; the computed spending facts remain and Claude writes the advice and chooses the plans. Added a fourth database, Payments (`data/db/payments.json`), and Market → Pay at places to buy from any of the 208 places in the Categories database with an editable date, saved as name, price, category and date. Added the "BarQ Developers" group with all five users (existing databases are migrated on start) and `POST /api/groups/:id/members` with an Add control in the Analyst's Hangout tab. Raised the places list limit to 250 so all 208 places can be listed.
@@ -255,3 +256,13 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 **Open items:** None.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-29 18:59 (Asia/Riyadh)
+
+**Update:** Added a place vote after the AI hangout plan. Group members can vote for planned places from their own devices; the host can finish the vote after at least one response, or it ends when everyone votes. The winning place is passed into the existing "who pays?" hangout vote. The poll is saved in the Games database and validates group membership and place IDs against the Places dataset. Added Arabic text and a compact vote layout. Claude-Dev was already configured through the local server environment; its key was not put in source control. Started the app on `http://172.20.10.5:5352` without changing the live site.
+
+**Validation:** Production build passed; 45 backend and dictionary tests passed, including a place vote from two group members, host-only closure, and rejection of late votes. Local `/api/health` returned `status=ok`, 208 places, and `claude=true`; `/hangouts` returned HTTP 200.
+
+**Open items:** The local server runs as a background process on this machine; it needs the machine and process to remain running to stay reachable.
+
+Tool: Codex (`Meshal` branch)

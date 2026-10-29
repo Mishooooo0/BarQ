@@ -768,6 +768,21 @@ export const ar: Record<string, string | Plural> = {
   'You are in the group automatically.': 'أنت تنضاف للشلة تلقائياً.',
   'Create the group': 'سوّ الشلة',
 
+  // Place voting in Hangouts
+  'Ask the group to vote for a place': 'اطلب من المجموعة التصويت على مكان',
+  'Where should we go?': 'إلى أين نذهب؟',
+  'Chosen place: {name}': 'المكان المختار: {name}',
+  '{count} votes': '{count} أصوات',
+  'Vote': 'صوّت',
+  'Finish place vote': 'إنهاء التصويت على المكان',
+  'Plan a hangout above, then let everyone choose a place.': 'خطط للطلعة أولاً، ثم دع الجميع يختارون المكان.',
+  'Choose up to six places from the plan.': 'اختر حتى ستة أماكن من الخطة.',
+  'Choose distinct places from the Places database.': 'اختر أماكن مختلفة من قاعدة بيانات الأماكن.',
+  'Place vote not found.': 'لم يُعثر على تصويت المكان.',
+  'The place vote has ended.': 'انتهى التصويت على المكان.',
+  'Choose a place in this vote.': 'اختر مكاناً في هذا التصويت.',
+  'Only the host can end the place vote.': 'منشئ التصويت فقط يمكنه إنهاءه.',
+
   // Occasion saving plan
   'Saving plan': 'خطة التوفير',
   'Per day': 'باليوم',

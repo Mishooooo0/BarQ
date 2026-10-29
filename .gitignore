@@ -6,3 +6,4 @@ playwright-report/
 .env*
 data/db/
 data/backups/
+server.local.*.log

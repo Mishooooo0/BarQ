@@ -275,6 +275,59 @@ const groupFor = (users, groupId, me) => {
   if (!group.members.includes(me)) fail(403, 'You are not in this group.');
   return group;
 };
+const publicPlacePoll = (poll, viewer) => ({ ...poll, myVote: poll.votes[viewer] ?? null,
+  options: poll.options.map(option => ({ ...option, votes: Object.values(poll.votes).filter(id => id === option.placeId).length })) });
+route('GET', '/api/place-polls', ({ req, url }) => {
+  const id = currentUserId(req); const users = read('users');
+  const group = groupFor(users, url.searchParams.get('groupId'), id);
+  return (read('games').placePolls ?? []).filter(p => p.groupId === group.id).map(p => publicPlacePoll(p, id));
+});
+route('POST', '/api/place-polls', async ({ req }) => {
+  const body = await readBody(req); const id = currentUserId(req); const users = read('users');
+  const group = groupFor(users, body.groupId, id);
+  if (!Array.isArray(body.options) || body.options.length < 1 || body.options.length > 6) fail(400, 'Choose up to six places from the plan.');
+  const seen = new Set();
+  const options = body.options.map(item => {
+    const place = places.find(p => p.record_id === item?.placeId);
+    if (!place || seen.has(place.record_id)) fail(400, 'Choose distinct places from the Places database.');
+    seen.add(place.record_id);
+    return { placeId: place.record_id, name: place.name, estimate: place.estimatedCost, time: typeof item.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(item.time) ? item.time : '20:00', label: text(item.label ?? place.name, 'Label', 60) };
+  });
+  return update('games', db => {
+    db.placePolls ??= [];
+    const poll = { id: `place-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, groupId: group.id, createdBy: id, createdAt: new Date().toISOString(), members: [...group.members], options, votes: {}, status: 'voting', winnerId: null };
+    db.placePolls.unshift(poll); db.placePolls.length = Math.min(db.placePolls.length, 50);
+    return publicPlacePoll(poll, id);
+  });
+});
+function finishPlacePoll(poll) {
+  const ranked = poll.options.map((option, index) => ({ placeId: option.placeId, count: Object.values(poll.votes).filter(id => id === option.placeId).length, index }));
+  ranked.sort((a, b) => b.count - a.count || a.index - b.index);
+  poll.winnerId = ranked[0].placeId; poll.status = 'decided'; poll.closedAt = new Date().toISOString();
+}
+route('POST', '/api/place-polls/:id/vote', async ({ req, params }) => {
+  const body = await readBody(req); const id = currentUserId(req);
+  return update('games', db => {
+    const poll = (db.placePolls ?? []).find(p => p.id === params.id) ?? fail(404, 'Place vote not found.');
+    if (!poll.members.includes(id)) fail(403, 'You are not in this group.');
+    if (poll.status !== 'voting') fail(409, 'The place vote has ended.');
+    if (!poll.options.some(o => o.placeId === body.placeId)) fail(400, 'Choose a place in this vote.');
+    poll.votes[id] = body.placeId;
+    if (poll.members.every(uid => uid in poll.votes)) finishPlacePoll(poll);
+    return publicPlacePoll(poll, id);
+  });
+});
+route('POST', '/api/place-polls/:id/close', ({ req, params }) => {
+  const id = currentUserId(req);
+  return update('games', db => {
+    const poll = (db.placePolls ?? []).find(p => p.id === params.id) ?? fail(404, 'Place vote not found.');
+    if (poll.createdBy !== id) fail(403, 'Only the host can end the place vote.');
+    if (poll.status !== 'voting') fail(409, 'The place vote has ended.');
+    if (!Object.keys(poll.votes).length) fail(409, 'Nobody has voted yet.');
+    finishPlacePoll(poll);
+    return publicPlacePoll(poll, id);
+  });
+});
 route('GET', '/api/hangouts', ({ req, url }) => {
   const id = currentUserId(req); expireVotes(new Date()); const users = read('users');
   const mine = users.groups.filter(g => g.members.includes(id)).map(g => g.id);
