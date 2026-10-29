@@ -4,9 +4,9 @@
 
 ## 1. Summary
 
-BarQ is a mobile banking app prototype built in one day by the team on top of a reconstructed barq interface. It has a working JavaScript backend with four databases, sign-in for five team accounts, a wallet whose every change is stored on the server, an AI Analyst called **Barq**, group hangouts with a "who's paying?" vote and a Flappy Bird game to decide the payer, and a Market section to pay at 208 real Riyadh places. It runs 24/7 in Docker on a team PC and on the Ring server, where it is published at barq1.arc-homlab.com.
+BarQ is a mobile banking app prototype built in one day by the team on top of a reconstructed barq interface. It has a working JavaScript backend with four databases, sign-in for five team accounts, a wallet whose every change is stored on the server, an AI Analyst called **Barq**, group hangouts with a "who's paying?" vote and three mini-games (Flappy Bird first, then two at random) to decide the payer, and a Market section to pay at 208 real Riyadh places. It runs 24/7 in Docker on a team PC and on the Ring server, where it is published at barq1.arc-homlab.com.
 
-All accounts currently start from zero: no balances, no transactions, no budgets, no payments and no hangouts. The only records are the five logins, the BarQ Developers group, the Flappy Bird game entry and the Places data.
+All accounts currently start from zero: no balances, no transactions, no budgets, no payments and no hangouts. The only records are the five logins, the BarQ Developers group, the five games and the Places data.
 
 | Area | Status |
 | --- | --- |
@@ -36,6 +36,7 @@ All accounts currently start from zero: no balances, no transactions, no budgets
 | 23:03 | Hangouts history; account progress reset on both machines | Claude Code |
 | 29 Oct, 00:25 | Occasions (Eid al-Fitr, Eid al-Adha, graduation, home party, holiday trip) with Eidia lists; Saving box with an end-of-year goal; phone status bar removed | Claude Code |
 | 29 Oct | UI polish pass; Arabic language toggle for the whole app (right to left, Arabic-Indic digits, Saudi voice) and AI answers in the chosen language | Claude Code |
+| 29 Oct | All five games connected to who-pays (Flappy Bird first, then two at random; highest total pays); Create a group; occasion saving plan per day and per month in Barq's structured output | Claude Code |
 
 ## 3. Architecture
 
@@ -60,7 +61,7 @@ Node server (server/api.mjs) ──► AI: Claude-Dev  ──(slow/failing)─�
 | Database | Contents |
 | --- | --- |
 | **Users** | Abdullah M, Abdullah S, Meshal, Sultana, Rasel. Name, PIN hash (scrypt), balance, Saving box amount and end-of-year goal, cashback, hangout budget, occasions (budget lines and Eidia list), transactions (seller, category, amount, date). Groups: **BarQ Developers** (all five). |
-| **Games** | Flappy Bird (the flying game in Points Challenges). Game sessions (players, rounds, scores, payer). Hangouts with their votes, result, who owes what, and when they ended. |
+| **Games** | The five Points Challenges games: Flappy Bird, Building Challenge, Reaction, Precision Challenge, Number Order. Game sessions (players, three games, scores, payer). Hangouts with their votes, result, who owes what, and when they ended. |
 | **Payments** | One record per payment (Pay at places and hangout bills): name, price, category, date, plus id, user, place and transaction ids. |
 | **Places & Categories** | 7 category templates (Food, Cafe, Health, Shopping, Groceries, Transportation, Entertainment) and 208 Riyadh places with ratings and price bands. |
 
@@ -77,14 +78,14 @@ Node server (server/api.mjs) ──► AI: Claude-Dev  ──(slow/failing)─�
 - **Structured output in English:** each request sends `language: "English"` and the exact JSON shape of the answer. The Ring API enforces the shape; Claude-Dev is sent it too. Every answer is validated on the server, and answers in Chinese, Japanese, Korean, Cyrillic or Thai are rejected and retried.
 
 ### Hangouts (own page)
-- Groups and members; any member can add a registered user to a group.
+- Groups and members: anyone can **create a group** (أضف شلة جديدة) with registered friends, and any member can add a registered user to a group.
 - Barq plans an outing around the **smallest** budget in the group, so nobody is put on the spot. Other members' budgets are never shown or sent to the AI.
 - **Who's paying? vote:** each member votes Split the bill, Everyone pays their own, or I will pay it.
 
   | Votes | Result |
   | --- | --- |
   | Exactly one "I will pay it" | That person pays the whole bill |
-  | Two or more "I will pay it" | They play Flappy Bird, each on their own phone; the highest score pays |
+  | Two or more "I will pay it" | They play three games, each on their own phone: Flappy Bird first, then two at random; the highest total pays |
   | Nobody volunteers | Split or own, whichever has more votes |
   | Split ties with own | Everyone pays their own |
 
@@ -94,7 +95,7 @@ Node server (server/api.mjs) ──► AI: Claude-Dev  ──(slow/failing)─�
 ### Occasions and Eidia
 - Budgets for Eid al-Fitr, Eid al-Adha, graduations, home parties and holiday trips. Each starts with suggested lines as shares of the budget (Eids start on their expected date, which can be changed). Lines can be edited and ticked off when bought.
 - The two Eids have an Eidia list: who you give to, how much, and whether it was given.
-- Shows budget, planned, left or over, and how much to put aside each week until the date. Barq can split the rest of the budget (after Eidia); its amounts are scaled to always fit.
+- Shows budget, planned, left or over, and a saving plan: what is not bought or given yet, per day and per month until the date. Barq can split the rest of the budget (after Eidia); its amounts are scaled to always fit, and its structured answer includes the saving plan with a tip (the numbers come from the server).
 
 ### Saving box
 - Move money from the wallet into the box and back. One goal: the amount to have saved by 31 December. Shows progress and how much to save per week and per day. Moves are "savings" transactions and never count as spending.
@@ -124,8 +125,8 @@ Crash recovery was tested on the Ring server: after the process was killed, Dock
 
 ## 7. Quality
 
-- **Backend tests (32):** databases, sign-in and lockout, forged tokens, empty starting accounts, wallet operations, transfers, payments with back-dated entries, groups, game sessions, all voting scenarios, occasions and Eidia (including validation and Barq's split), the Saving box, AI validation (retries, invented places rejected, the chosen language enforced for English and Arabic), the AI fallback, and migration of older databases. Plus 4 checks that the Arabic dictionary covers every text, keeps placeholders and plural forms, and contains no English.
-- **Browser tests (33):** every main screen, the Arabic toggle (right to left, Arabic digits, Arabic AI answers, translated server errors, and a scan of every Arabic screen and sheet for leftover English), sign-in, wallet flows, Market, rewards, the Analyst, Hangouts with votes, the game and History, Occasions with Eidia, the Saving box, no phone status bar, a simulated backend outage, a LAN-address crash regression, narrow screens and desktop layout.
+- **Backend tests (36):** databases, sign-in and lockout, forged tokens, empty starting accounts, wallet operations, transfers, payments with back-dated entries, groups, game sessions (three games with Flappy Bird first, play in order, scores only for the right game), creating groups, the occasion saving plan, all voting scenarios, occasions and Eidia (including validation and Barq's split), the Saving box, AI validation (retries, invented places rejected, the chosen language enforced for English and Arabic), the AI fallback, and migration of older databases. Plus 4 checks that the Arabic dictionary covers every text, keeps placeholders and plural forms, and contains no English.
+- **Browser tests (35):** three-game hangouts, creating a group (English and Arabic), every main screen, the Arabic toggle (right to left, Arabic digits, Arabic AI answers, translated server errors, and a scan of every Arabic screen and sheet for leftover English), sign-in, wallet flows, Market, rewards, the Analyst, Hangouts with votes, the game and History, Occasions with Eidia, the Saving box, no phone status bar, a simulated backend outage, a LAN-address crash regression, narrow screens and desktop layout.
 - Tests use isolated databases and a local stand-in for both AI engines; they never touch real data or call the real AI.
 - The UI does not break when the backend changes or fails: every screen shows a readable error with Try again, and an error boundary protects the rest of the app.
 
@@ -138,7 +139,7 @@ Crash recovery was tested on the Ring server: after the process was killed, Dock
 ## 9. Known limitations and next steps
 
 1. Claude-Dev's response time varies widely (about 2 seconds to over a minute); the Ring API fallback covers the slow periods, at up to about 30 seconds per answer.
-2. Only one game (Flappy Bird) is in the Games database, as planned; adding more lets a hangout game have several rounds.
+2. Game points are added as each game counts them, so games with bigger point ranges (Reaction and Precision, up to 500) weigh more in a total than Number Order (up to 150).
 3. Cards, the Market product catalog and rewards progress are still local to the browser.
 4. The public deployment uses the test PINs; change them in `server/seed.mjs` and run `npm run db:reset` before wider use.
 5. The other team branches (`Almalki`, `Rasel`, `Sultana`, `Testing`) have not been merged into this work.

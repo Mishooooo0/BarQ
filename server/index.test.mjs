@@ -45,7 +45,7 @@ const everyone = ['abdullah-m', 'abdullah-s', 'meshal', 'sultana', 'rasel'];
 test('health reports all four databases and the AI connection without the key', async () => {
   const { status, body } = await call('GET', '/api/health');
   assert.equal(status, 200);
-  assert.deepEqual([body.places, body.categories, body.users, body.games, body.payments], [208, 7, 5, 1, 0]);
+  assert.deepEqual([body.places, body.categories, body.users, body.games, body.payments], [208, 7, 5, 5, 0]);
   assert.equal(body.ai.configured, true);
   assert.ok(!JSON.stringify(body).includes('test-key'));
 });
@@ -269,6 +269,22 @@ test('payments are stored as name, price, category and date and charge the walle
   assert.equal((await call('POST', '/api/payments', { token: broke, body: { placeId: (await call('GET', '/api/places?category=shopping&limit=1')).body.items[0].record_id, date: today } })).status, 409);
 });
 
+test('anyone can create a group with registered friends', async () => {
+  const token = await login('rasel');
+  const { status, body } = await call('POST', '/api/groups', { token, body: { name: '  Weekend crew ', members: ['meshal', 'sultana', 'meshal', 'rasel'] } });
+  assert.equal(status, 200);
+  assert.equal(body.name, 'Weekend crew');
+  assert.deepEqual(body.members.map(m => m.id), ['rasel', 'meshal', 'sultana']);
+  assert.ok(!JSON.stringify(body).includes('balance'));
+  assert.ok((await call('GET', '/api/me/groups', { token: await login('sultana') })).body.some(g => g.id === body.id));
+  assert.ok(!(await call('GET', '/api/me/groups', { token: await login('abdullah-m') })).body.some(g => g.id === body.id));
+  for (const bad of [{ name: '', members: ['meshal'] }, { name: 'Solo', members: [] }, { name: 'Solo', members: ['rasel'] }, { name: 'Ghosts', members: ['nobody'] }, { name: 'x'.repeat(31), members: ['meshal'] }, { name: 'No list' }]) {
+    assert.equal((await call('POST', '/api/groups', { token, body: bad })).status, 400, JSON.stringify(bad));
+  }
+  assert.equal((await call('POST', '/api/groups', { token, body: { name: 'weekend CREW', members: ['meshal'] } })).status, 409);
+  assert.equal((await call('POST', '/api/groups', { body: { name: 'Anon', members: ['meshal'] } })).status, 401);
+});
+
 test('members can add registered users to a group', async () => {
   update('users', db => { db.groups.push({ id: 'test-crew', name: 'Test crew', members: ['meshal', 'abdullah-m'] }); });
   const outsider = await login('sultana');
@@ -283,17 +299,48 @@ test('members can add registered users to a group', async () => {
   assert.ok((await call('GET', '/api/me/groups', { token: outsider })).body.some(g => g.id === 'test-crew'));
 });
 
-test('game session picks the payer by total points and charges the bill', async () => {
+test('the Games database has all five Points Challenges games', async () => {
+  const games = (await call('GET', '/api/games')).body;
+  assert.deepEqual(games.map(g => g.id), ['flappy-bird', 'stack-builder', 'reaction', 'precision', 'number-order']);
+  assert.deepEqual(games.map(g => g.engine), ['fly', 'stack', 'react', 'aim', 'num']);
+  assert.ok(games.every(g => g.status === 'active' && g.name && g.nameAr));
+});
+
+test('a session is three games: Flappy Bird first, then two of the others at random', async () => {
+  const host = await login('abdullah-m');
+  const others = new Set(); const pairs = new Set();
+  for (let i = 0; i < 12; i++) {
+    const { body } = await call('POST', '/api/game-sessions', { token: host, body: { players: ['abdullah-m', 'meshal'] } });
+    const ids = body.rounds.map(r => r.gameId);
+    assert.equal(ids.length, 3);
+    assert.equal(ids[0], 'flappy-bird');
+    assert.equal(new Set(ids).size, 3);
+    ids.slice(1).forEach(id => others.add(id));
+    pairs.add(ids.slice(1).join());
+  }
+  assert.ok([...others].every(id => ['stack-builder', 'reaction', 'precision', 'number-order'].includes(id)));
+  assert.ok(pairs.size > 1, 'the second and third games change between sessions');
+});
+
+test('each player plays the three games in order, and the highest total pays the bill', async () => {
   const host = await login('abdullah-m'); const other = await login('meshal');
-  assert.deepEqual((await call('GET', '/api/games')).body.map(g => g.name), ['Flappy Bird']);
   const created = await call('POST', '/api/game-sessions', { token: host, body: { players: ['abdullah-m', 'meshal', 'sultana'], billAmount: 120 } });
   assert.equal(created.status, 200);
-  const id = created.body.id;
-  assert.equal(created.body.rounds.length, 1);
+  const id = created.body.id; const games = created.body.rounds.map(r => r.gameId);
   assert.equal((await call('POST', `/api/game-sessions/${id}/settle`, { token: host })).status, 409);
   assert.equal((await call('POST', `/api/game-sessions/${id}/scores`, { token: other, body: { playerId: 'meshal', points: 5 } })).status, 403);
-  for (const [playerId, points] of [['abdullah-m', 7], ['meshal', 12], ['sultana', 3]]) assert.equal((await call('POST', `/api/game-sessions/${id}/scores`, { token: host, body: { playerId, points } })).status, 200);
-  const session = (await call('GET', `/api/game-sessions/${id}`, { token: other })).body;
+  const score = (playerId, points, gameId) => call('POST', `/api/game-sessions/${id}/scores`, { token: host, body: { playerId, points, gameId } });
+  // Meshal plays all three games without waiting for the others.
+  for (const [i, points] of [12, 200, 20].entries()) assert.equal((await score('meshal', points, games[i])).status, 200);
+  let session = (await call('GET', `/api/game-sessions/${id}`, { token: other })).body;
+  assert.deepEqual([session.status, session.currentRound], ['playing', 0]);
+  assert.equal((await score('meshal', 1)).status, 409, 'no fourth game');
+  assert.equal((await score('abdullah-m', 1, games[1])).status, 409, 'a score for a game the player has not reached is refused');
+  for (const [i, points] of [7, 100, 50].entries()) assert.equal((await score('abdullah-m', points, games[i])).status, 200);
+  for (const [i, points] of [3, 10, 10].entries()) assert.equal((await score('sultana', points, games[i])).status, 200);
+  session = (await call('GET', `/api/game-sessions/${id}`, { token: other })).body;
+  assert.equal(session.status, 'finished');
+  assert.deepEqual(session.result.totals, { 'abdullah-m': 157, meshal: 232, sultana: 23 });
   assert.equal(session.result.payer, 'meshal');
   const before = await balanceOf(other);
   assert.equal((await call('POST', `/api/game-sessions/${id}/settle`, { token: host })).body.status, 'settled');
@@ -342,7 +389,7 @@ test('scenario 1: one "I will pay it" wins over three "split"', async () => {
   assert.equal((await vote(t.meshal, hangout.id, 'split')).status, 409);
 });
 
-test('scenario 2: two "I will pay it" play the game and the highest score pays', async () => {
+test('scenario 2: two "I will pay it" play three games and the highest total pays', async () => {
   const t = await tokens();
   const hangout = await startHangout(t['abdullah-m']);
   await fund(t['abdullah-s'], hangout.billAmount);
@@ -356,8 +403,18 @@ test('scenario 2: two "I will pay it" play the game and the highest score pays',
   assert.deepEqual(session.players, ['abdullah-s', 'sultana']);
   assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t.meshal, body: { playerId: 'sultana', points: 1 } })).status, 403, 'only players or the host');
   assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t['abdullah-s'], body: { playerId: 'sultana', points: 1 } })).status, 403, 'a player cannot play for someone else');
-  assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t.sultana, body: { playerId: 'sultana', points: 4 } })).status, 200);
-  assert.equal((await call('POST', `/api/game-sessions/${session.id}/scores`, { token: t['abdullah-s'], body: { playerId: 'abdullah-s', points: 9 } })).status, 200);
+  const games = session.rounds.map(r => r.gameId);
+  assert.equal(games[0], 'flappy-bird');
+  const play = (who, points, i) => call('POST', `/api/game-sessions/${session.id}/scores`, { token: t[who], body: { playerId: who, points, gameId: games[i] } });
+  // Sultana plays her first two games before Abdullah S starts: nobody waits for the others.
+  assert.equal((await play('sultana', 4, 0)).status, 200);
+  assert.equal((await play('sultana', 50, 1)).status, 200);
+  assert.equal((await play('sultana', 50, 1)).status, 409, 'the same game twice (for example from a second phone)');
+  assert.equal((await play('abdullah-s', 9, 0)).status, 200);
+  assert.equal((await play('abdullah-s', 60, 1)).status, 200);
+  assert.equal((await play('sultana', 30, 2)).status, 200);
+  assert.equal((await call('GET', '/api/hangouts', { token: t.sultana })).body.find(h => h.id === hangout.id).status, 'playing', 'not decided until everyone has played every game');
+  assert.equal((await play('abdullah-s', 40, 2)).status, 200);
   const decided = (await call('GET', '/api/hangouts', { token: t.sultana })).body.find(h => h.id === hangout.id);
   assert.equal(decided.status, 'decided');
   assert.equal(decided.result.label, 'Abdullah S pays the bill');
@@ -442,6 +499,19 @@ test('occasions are validated', async () => {
   assert.deepEqual([renamed.title, renamed.budget, renamed.lines.length], ['Big dinner', 800, party.lines.length]);
 });
 
+test('every occasion has a saving plan per day, week and month until the date', async () => {
+  const { savingPlan } = await import('./occasions.mjs');
+  assert.deepEqual(savingPlan({ budget: 2500, done: 0, daysLeft: 199, past: false }), { amount: 2500, days: 199, weeks: 29, months: 7, perDay: 13, perWeek: 87, perMonth: 358 });
+  assert.deepEqual(savingPlan({ budget: 900, done: 300, daysLeft: 20, past: false }), { amount: 600, days: 20, weeks: 3, months: 1, perDay: 30, perWeek: 200, perMonth: 600 });
+  assert.equal(savingPlan({ budget: 500, done: 0, daysLeft: 0, past: false }).perDay, 500, 'on the day, the whole amount');
+  assert.deepEqual(savingPlan({ budget: 500, done: 0, daysLeft: 0, past: true }), { amount: 0, days: 0, weeks: 1, months: 1, perDay: 0, perWeek: 0, perMonth: 0 });
+  assert.equal(savingPlan({ budget: 500, done: 700, daysLeft: 10, past: false }).amount, 0, 'nothing to save once everything is bought');
+  const token = await login('abdullah-s');
+  const party = (await call('POST', '/api/occasions', { token, body: { type: 'home-party', budget: 900, date: dayAfter(20) } })).body;
+  assert.deepEqual([party.saving.amount, party.saving.days, party.saving.perDay, party.saving.perMonth], [900, 20, 45, 900]);
+  await call('DELETE', `/api/occasions/${party.id}`, { token });
+});
+
 test('Barq suggests occasion lines that fit the budget left after Eidia', async () => {
   const token = await login('abdullah-s');
   const eid = (await call('POST', '/api/occasions', { token, body: { type: 'eid-fitr', budget: 1000 } })).body;
@@ -454,6 +524,10 @@ test('Barq suggests occasion lines that fit the budget left after Eidia', async 
   assert.ok(body.total <= 700 && body.total >= 690, `total ${body.total}`);
   assert.deepEqual(body.lines.map(l => l.label), ['Clothes', 'Food', 'Gifts']);
   assert.equal(body.source, 'claude');
+  // The saving plan is part of the structured answer; its numbers always come from the server (the fake answers one riyal off).
+  const occasion = (await call('GET', '/api/occasions', { token })).body.find(o => o.id === eid.id);
+  assert.deepEqual(body.saving, { ...occasion.saving, tip: 'Move it to the Saving box on payday.' });
+  assert.ok(body.saving.perDay > 0 && body.saving.perMonth >= body.saving.perDay);
 });
 
 test('Saving box: a goal for the end of the year, money in and out of the wallet', async () => {
@@ -491,7 +565,7 @@ test('direct UI routes return the app shell or a build hint, and unknown API rou
   assert.equal((await call('DELETE', '/api/health')).status, 405);
 });
 
-test('an older database gains the BarQ Developers group and a Payments file', async () => {
+test('an older database gains the BarQ Developers group, a Payments file and the other four games', async () => {
   const { read } = await import('./db.mjs');
   const { buildSeed } = await import('./seed.mjs');
   const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -501,6 +575,7 @@ test('an older database gains the BarQ Developers group and a Payments file', as
     const seed = buildSeed();
     seed.users.groups = [];
     delete seed.games.hangouts;
+    seed.games.games = seed.games.games.slice(0, 1); // older databases had only Flappy Bird
     mkdirSync(old, { recursive: true });
     writeFileSync(path.join(old, 'users.json'), JSON.stringify(seed.users));
     writeFileSync(path.join(old, 'games.json'), JSON.stringify(seed.games));
@@ -509,6 +584,7 @@ test('an older database gains the BarQ Developers group and a Payments file', as
     assert.equal(groups[0].id, 'barq-developers');
     assert.equal(groups[0].members.length, 5);
     assert.ok(existsSync(path.join(old, 'payments.json')));
+    assert.deepEqual(read('games').games.map(g => g.id), ['flappy-bird', 'stack-builder', 'reaction', 'precision', 'number-order']);
   } finally { process.env.BARQ_DB_DIR = previous; rmSync(old, { recursive: true, force: true }); }
 });
 

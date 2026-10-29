@@ -6,7 +6,7 @@ import { useSession } from '../../app/SessionProvider';
 import { api, errorMessage } from '../../lib/api';
 import { ErrorState, Money } from '../../components/ui/Primitives';
 import type { Hangout, User, VoteChoice } from '../../types/api';
-import { digits, formatDate, t, tn } from '../../i18n';
+import { digits, formatDate, joinNames, t, tn } from '../../i18n';
 import { choiceLabel, hangoutResultText } from '../../i18n/data';
 
 const choices: VoteChoice[] = ['split', 'own', 'pay'];
@@ -50,8 +50,8 @@ function HangoutCard({ hangout, onChange, onPaid }: { hangout: Hangout; onChange
     </> : hangout.result && <>
       <p className="hangout-result" role="status">{hangoutResultText(hangout.result)}</p>
       <p className="fine-print">{t('Votes: split {split} · own {own} · I will pay {pay}', { split: hangout.result.tally.split, own: hangout.result.tally.own, pay: hangout.result.tally.pay })}</p>
-      {hangout.status === 'playing' && hangout.sessionId && (isPlayer || hangout.createdBy === user.id) && <Link className="primary-button" to={`/hangouts/${hangout.id}/play`}><Gamepad2 size={16} /> {t('Play the game')}</Link>}
-      {hangout.status === 'playing' && !isPlayer && hangout.createdBy !== user.id && <p className="muted">{t('Waiting for {names} to play.', { names: (hangout.result.players ?? []).map(p => p.name).join(t(' and ')) })}</p>}
+      {hangout.status === 'playing' && hangout.sessionId && (isPlayer || hangout.createdBy === user.id) && <Link className="primary-button" to={`/hangouts/${hangout.id}/play`}><Gamepad2 size={16} /> {t('Play the games')}</Link>}
+      {hangout.status === 'playing' && !isPlayer && hangout.createdBy !== user.id && <p className="muted">{t('Waiting for {names} to play.', { names: joinNames((hangout.result.players ?? []).map(p => p.name), t(' and ')) })}</p>}
       {hangout.dues.length > 0 && <ul className="dues-list">{hangout.dues.map(d => <li key={d.userId}><span>{d.userId === user.id ? t('You') : d.name}</span><Money amount={d.amount} /><small>{d.paid ? t('Paid') : t('To pay')}</small></li>)}</ul>}
       {hangout.status === 'decided' && myDue && !myDue.paid && <button type="button" className="primary-button" onClick={pay} disabled={!!busy || myDue.amount > user.balance}>{busy === 'pay' ? t('Paying…') : tn('Pay {amount}', { amount: <Money amount={myDue.amount} /> })}</button>}
       {hangout.status === 'decided' && myDue && !myDue.paid && myDue.amount > user.balance && <p className="error-text">{t('Not enough balance. Add money from Home.')}</p>}

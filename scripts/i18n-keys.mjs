@@ -49,11 +49,13 @@ export async function dataKeys() {
   const keys = [...mock.matchAll(/(?:name|detail|description): '((?:[^'\\]|\\.)*)'/g)].map(m => unescape(m[1]).replace(/\\n/g, '\n'));
   const { OCCASION_TYPES } = await import(pathToFileURL(path.join(root, 'server/occasions.mjs')).href);
   for (const type of OCCASION_TYPES) keys.push(type.name, ...type.lines.map(([label]) => label));
+  const { SEED_GAMES } = await import(pathToFileURL(path.join(root, 'server/seed.mjs')).href);
+  for (const game of SEED_GAMES) keys.push(game.name, game.description);
   keys.push('Careem / Uber estimate', 'Wallet top-up', 'Saving box', 'From Saving box', 'barq Market order', 'Spin the Wheel reward', 'Group bill (games)', 'split bill', 'my share', 'bill');
   keys.push('barq wallet', 'local bank', 'international', 'added to the box', 'back to the wallet');
   keys.push('Food', 'Cafe', 'Health', 'Shopping', 'Groceries', 'Transportation', 'Entertainment');
   // Field names and reasons that src/i18n/messages.ts fills into translated server messages.
-  keys.push('Merchant', 'Name', 'Label', 'Each line needs a name', 'Each Eidia needs a name', 'an amount', 'a budget', 'a bill amount', 'a goal', 'each amount', 'each Eidia');
+  keys.push('Merchant', 'Name', 'Label', 'Group name', 'Each line needs a name', 'Each Eidia needs a name', 'an amount', 'a budget', 'a bill amount', 'a goal', 'each amount', 'each Eidia');
   keys.push('it took too long', 'it is busy', 'it could not be reached', 'it returned an error', 'its answer was unusable');
   keys.push(...serverMessages());
   return keys;

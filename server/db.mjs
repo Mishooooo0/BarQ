@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { dbDir } from './paths.mjs';
-import { buildSeed, DEVELOPERS_GROUP } from './seed.mjs';
+import { buildSeed, DEVELOPERS_GROUP, SEED_GAMES } from './seed.mjs';
 
 const files = { users: 'users.json', games: 'games.json', payments: 'payments.json' };
 const fileFor = name => path.join(dbDir(), files[name]);
@@ -42,6 +42,12 @@ function migrate() {
     users.groups.unshift({ ...DEVELOPERS_GROUP, members: users.users.map(u => u.id) });
     writeJson(fileFor('users'), users);
   }
+  // Older Games databases have only Flappy Bird: add the games that are missing, keeping existing ones as they are.
+  try {
+    const games = JSON.parse(readFileSync(fileFor('games'), 'utf8'));
+    const missing = SEED_GAMES.filter(seed => !games.games.some(g => g.id === seed.id));
+    if (missing.length) { games.games.push(...missing); writeJson(fileFor('games'), games); }
+  } catch { /* read() reports an unreadable file */ }
   migrated.add(dbDir());
 }
 

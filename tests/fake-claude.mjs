@@ -14,8 +14,8 @@ function answer(prompt) {
   const arabic = data.language === 'Arabic';
   // Occasion plans deliberately add up to 110% of what is available, to test that the server scales them down.
   if (task === 'occasion-plan') return arabic
-    ? { message: `خطة تجريبية لـ${data.occasionInArabic}.`, pose: 'thumbs', lines: [['ملابس', 0.5], ['أكل', 0.3], ['هدايا', 0.3]].map(([label, share]) => ({ label, amount: Math.round(data.available * share), note: null })), tips: ['جنّب شوي كل أسبوع.'] }
-    : { message: `Fake plan for ${data.occasion}.`, pose: 'thumbs', lines: [['Clothes', 0.5], ['Food', 0.3], ['Gifts', 0.3]].map(([label, share]) => ({ label, amount: Math.round(data.available * share), note: null })), tips: [`Put aside SAR ${Math.ceil(data.budget / 4)} a week.`] };
+    ? { message: `خطة تجريبية لـ${data.occasionInArabic}.`, pose: 'thumbs', lines: [['ملابس', 0.5], ['أكل', 0.3], ['هدايا', 0.3]].map(([label, share]) => ({ label, amount: Math.round(data.available * share), note: null })), tips: ['اشتر الملابس بدري.'], saving: { perDay: data.savingPlan.perDay + 1, perMonth: data.savingPlan.perMonth + 1, tip: 'حطها في الحصّالة أول ما ينزل الراتب.' } }
+    : { message: `Fake plan for ${data.occasion}.`, pose: 'thumbs', lines: [['Clothes', 0.5], ['Food', 0.3], ['Gifts', 0.3]].map(([label, share]) => ({ label, amount: Math.round(data.available * share), note: null })), tips: ['Buy the clothes early.'], saving: { perDay: data.savingPlan.perDay + 1, perMonth: data.savingPlan.perMonth + 1, tip: 'Move it to the Saving box on payday.' } };
   if (task === 'advice') return arabic
     ? { headline: `نصيحة تجريبية لـ${data.name}`, tips: ['خفّف زيارة كوفي وحدة بالأسبوع.', 'اشتراك نتفلكس يتجدد قريب.'], pose: 'thumbs' }
     : { headline: `Fake advice for ${data.name}`, tips: ['Cut one cafe visit a week.', 'Netflix renews soon.'], pose: 'thumbs' };

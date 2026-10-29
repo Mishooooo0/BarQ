@@ -156,9 +156,30 @@ route('PUT', '/api/me/budget', async ({ req }) => {
     return publicUser(user);
   });
 });
+/** A group as its members see it: who is in it and who has set a hangout budget (never the amount). */
+const groupView = (db, group, viewerId) => ({ id: group.id, name: group.name, members: group.members.map(mid => db.users.find(u => u.id === mid)).filter(Boolean).map(u => ({ ...directoryEntry(u), ready: u.id === viewerId || u.hangoutBudget != null })) });
+const MAX_GROUPS = 20; const MAX_GROUP_SIZE = 20;
 route('GET', '/api/me/groups', ({ req }) => {
   const db = read('users'); const user = me(db, req);
-  return db.groups.filter(g => g.members.includes(user.id)).map(g => ({ id: g.id, name: g.name, members: g.members.map(mid => db.users.find(u => u.id === mid)).filter(Boolean).map(u => ({ ...directoryEntry(u), ready: u.id === user.id || u.hangoutBudget != null })) }));
+  return db.groups.filter(g => g.members.includes(user.id)).map(g => groupView(db, g, user.id));
+});
+route('POST', '/api/groups', async ({ req }) => {
+  const body = await readBody(req); const id = currentUserId(req); const now = new Date();
+  const name = text(body.name, 'Group name', 30);
+  if (!Array.isArray(body.members)) fail(400, 'Choose at least one friend for the group.');
+  const friends = [...new Set(body.members)].filter(member => member !== id);
+  return update('users', db => {
+    findUser(db, id, 401);
+    if (!friends.length) fail(400, 'Choose at least one friend for the group.');
+    if (friends.length + 1 > MAX_GROUP_SIZE) fail(400, `A group can have up to ${MAX_GROUP_SIZE} people.`);
+    if (!friends.every(member => typeof member === 'string' && db.users.some(u => u.id === member))) fail(400, 'Every member must be a registered user.');
+    const mine = db.groups.filter(g => g.members.includes(id));
+    if (mine.length >= MAX_GROUPS) fail(409, `You can be in up to ${MAX_GROUPS} groups.`);
+    if (mine.some(g => g.name.toLocaleLowerCase() === name.toLocaleLowerCase())) fail(409, `You already have a group called ${name}.`);
+    const group = { id: `group-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name, members: [id, ...friends], createdBy: id, createdAt: now.toISOString() };
+    db.groups.push(group);
+    return groupView(db, group, id);
+  });
 });
 route('POST', '/api/transfers', async ({ req }) => {
   const body = await readBody(req); const id = currentUserId(req); const now = new Date();
@@ -208,8 +229,9 @@ route('POST', '/api/groups/:id/members', async ({ req, params }) => {
     const newcomer = typeof body.userId === 'string' ? db.users.find(u => u.id === body.userId) : null;
     if (!newcomer) fail(400, 'Choose a registered user to add.');
     if (group.members.includes(newcomer.id)) fail(409, `${newcomer.name} is already in ${group.name}.`);
+    if (group.members.length >= MAX_GROUP_SIZE) fail(409, `A group can have up to ${MAX_GROUP_SIZE} people.`);
     group.members.push(newcomer.id);
-    return { id: group.id, name: group.name, members: group.members.map(mid => db.users.find(u => u.id === mid)).filter(Boolean).map(u => ({ ...directoryEntry(u), ready: u.id === id || u.hangoutBudget != null })) };
+    return groupView(db, group, id);
   });
 });
 
@@ -223,7 +245,7 @@ function publicHangout(h, users, me) {
     endedAt: h.status === 'settled' ? h.settledAt ?? h.closedAt ?? h.createdAt : null,
     members: h.members.map(uid => ({ id: uid, name: name(uid), voted: uid in h.votes })), votes: h.status === 'voting' ? null : Object.fromEntries(Object.entries(h.votes).map(([uid, c]) => [uid, c])),
     myVote: h.votes[me] ?? null, voteCount: Object.keys(h.votes).length,
-    result: h.result ? { ...h.result, label: h.result.outcome === 'volunteer' || (h.result.outcome === 'game' && h.result.payer) ? `${name(h.result.payer)} pays the bill` : h.result.outcome === 'game' ? `${h.result.players.map(name).join(' vs ')}: the highest score pays` : CHOICE_LABELS[h.result.outcome], players: h.result.players?.map(uid => ({ id: uid, name: name(uid) })) ?? null, payerName: h.result.payer ? name(h.result.payer) : null } : null,
+    result: h.result ? { ...h.result, label: h.result.outcome === 'volunteer' || (h.result.outcome === 'game' && h.result.payer) ? `${name(h.result.payer)} pays the bill` : h.result.outcome === 'game' ? `${h.result.players.map(name).join(' vs ')}: the highest total pays` : CHOICE_LABELS[h.result.outcome], players: h.result.players?.map(uid => ({ id: uid, name: name(uid) })) ?? null, payerName: h.result.payer ? name(h.result.payer) : null } : null,
     dues: owed,
   };
 }
@@ -459,12 +481,13 @@ route('GET', '/api/game-sessions/:id', ({ req, params }) => {
 route('POST', '/api/game-sessions/:id/scores', async ({ req, params }) => {
   const body = await readBody(req); const id = currentUserId(req);
   if (!Number.isInteger(body.points) || body.points < 0 || body.points > 100000) fail(400, 'Points must be a whole number from 0 to 100,000.');
+  if (body.gameId != null && typeof body.gameId !== 'string') fail(400, 'Unknown game.');
   return update('games', db => {
     const session = db.sessions.find(s => s.id === params.id) ?? fail(404, 'Session not found.');
     if (session.createdBy !== id && !(session.hangoutId && session.players.includes(id))) fail(403, 'Only the host can enter scores.');
     // In a hangout game each volunteer plays their own turn on their own phone; only the host may enter others' scores.
     if (session.hangoutId && session.createdBy !== id && body.playerId !== id) fail(403, 'You can only play your own turn.');
-    recordScore(session, { playerId: body.playerId, points: body.points });
+    recordScore(session, { playerId: body.playerId, points: body.points, gameId: body.gameId ?? null });
     // A hangout's game decides who pays the bill.
     const hangout = session.hangoutId ? (db.hangouts ?? []).find(h => h.id === session.hangoutId) : null;
     if (hangout && session.status === 'finished') { hangout.result = { ...hangout.result, payer: session.result.payer }; hangout.status = 'decided'; }

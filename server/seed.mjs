@@ -14,8 +14,14 @@ export const SEED_ACCOUNTS = [
 export const DEVELOPERS_GROUP = { id: 'barq-developers', name: 'BarQ Developers' };
 export const SEED_GROUPS = [{ ...DEVELOPERS_GROUP, members: SEED_ACCOUNTS.map(account => account.id) }];
 
+// The five Points Challenges games. `engine` is the game's key in public/games/points-games.html (?play=<engine>).
+// "Who pays" sessions always start with Flappy Bird, then two of the others at random (server/games.mjs).
 export const SEED_GAMES = [
   { id: 'flappy-bird', name: 'Flappy Bird', nameAr: 'رحلة الطيران', engine: 'fly', path: '/points-games', status: 'active', description: 'Fly through the gaps. Every gap passed is a point.' },
+  { id: 'stack-builder', name: 'Building Challenge', nameAr: 'تحدي البناء', engine: 'stack', path: '/points-games', status: 'active', description: 'Stack the moving blocks as high as you can. Every block placed earns points.' },
+  { id: 'reaction', name: 'Reaction', nameAr: 'رد الفعل', engine: 'react', path: '/points-games', status: 'active', description: 'Tap the moment it turns green. Five rounds, up to 100 points each.' },
+  { id: 'precision', name: 'Precision Challenge', nameAr: 'تحدي الدقة', engine: 'aim', path: '/points-games', status: 'active', description: 'Five shots at a moving target, up to 100 points each.' },
+  { id: 'number-order', name: 'Number Order', nameAr: 'ترتيب الأرقام', engine: 'num', path: '/points-games', status: 'active', description: 'Tap 1 to 10 in order. Faster taps earn more points.' },
 ];
 
 export function buildSeed(now = new Date()) {

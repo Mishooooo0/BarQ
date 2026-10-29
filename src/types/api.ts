@@ -40,6 +40,8 @@ export interface Hangout {
   result: { outcome: 'volunteer' | 'game' | 'split' | 'own'; label: string; payer: string | null; payerName: string | null; players: { id: string; name: string }[] | null; tally: Record<VoteChoice, number> } | null;
   dues: { userId: string; name: string; amount: number; paid: boolean }[];
 }
+/** A game in the Games database; `engine` is its key in the Points Challenges page. */
+export interface Game { id: string; name: string; nameAr: string; engine: string; path: string; status: 'active' | 'inactive'; description: string; }
 export interface GameSession {
   id: string; createdBy: string; players: string[]; billAmount: number; status: 'playing' | 'finished' | 'settled'; hangoutId?: string;
   rounds: { gameId: string; scores: Record<string, number> }[]; currentRound: number;
@@ -56,8 +58,11 @@ export interface Occasion {
   lines: OccasionLine[]; eidia: EidiaEntry[]; createdAt: string; updatedAt: string;
   totals: { lines: number; eidia: number; planned: number; left: number; over: boolean; done: number };
   daysLeft: number; past: boolean; perWeek: number;
+  /** What is still to buy or give, spread over the days, weeks and months left. */
+  saving: SavingPlan;
 }
-export interface OccasionPlan extends AiSource { message: string; pose: Pose; lines: { label: string; amount: number; note: string | null }[]; tips: string[]; total: number; available: number; }
+export interface SavingPlan { amount: number; days: number; weeks: number; months: number; perDay: number; perWeek: number; perMonth: number; }
+export interface OccasionPlan extends AiSource { message: string; pose: Pose; lines: { label: string; amount: number; note: string | null }[]; tips: string[]; saving: SavingPlan & { tip: string }; total: number; available: number; }
 /** The Saving box and its end-of-year goal (server/savings.mjs). */
 export interface Savings {
   saved: number; target: number | null; deadline: string; daysLeft: number; remaining: number | null;

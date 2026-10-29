@@ -572,3 +572,27 @@ main { padding-bottom: calc(102px + env(safe-area-inset-bottom)); padding-top: 1
 [dir="rtl"] .analyst-bubble::before { transform: rotate(-135deg); }
 [dir="rtl"] .budget-slider input[type="range"] { background: linear-gradient(270deg, #1f6fe5 var(--fill), #e4e6ec var(--fill)); }
 [dir="rtl"] .amount-input { text-align: left; }
+
+/* Who-pays games: the three games in order */
+.game-order { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.game-order li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 16px; background: white; font-size: 12px; font-weight: 700; }
+.game-order li span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); font-size: 11px; font-weight: 800; }
+.score-board li > span { display: flex; flex-direction: column; gap: 2px; }
+.score-board li small { font-size: 10px; color: var(--muted); font-weight: 500; }
+.game-next { font-weight: 800; color: #111 !important; font-size: 14px !important; margin: 4px 0 6px; }
+.hangout-game .success-text { display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* Create a group */
+.create-group-button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 20px; background: white; border: 1px dashed #b9bcc6; font-size: 12px; font-weight: 700; margin: -4px 0 12px; }
+.create-group { margin-top: 0; }
+.people-picker { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.people-picker legend { font-size: 12px; font-weight: 650; margin-bottom: 8px; padding: 0; }
+.person-check { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; background: #f4f4f6; font-size: 13px; font-weight: 650; }
+.person-check input { width: 18px; height: 18px; accent-color: #1f6fe5; }
+
+/* Occasion saving plan */
+.saving-plan { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0f0f3; }
+.saving-plan h4 { font-size: 12px; font-weight: 750; color: var(--muted); margin: 0 0 8px; }
+.saving-plan .insight-grid strong { font-size: 14px; font-weight: 800; color: #111; }
+.saving-plan .fine-print { margin-top: 8px; }
+.saving-tip { font-size: 12px; line-height: 19px; color: #333; margin-top: 8px; }

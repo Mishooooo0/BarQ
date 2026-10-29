@@ -43,6 +43,9 @@ export const formatDate = (value: Date | number | string, options: Intl.DateTime
 // In Arabic, filled-in text with Latin letters (names of people and places) is wrapped in Unicode isolates so it keeps
 // its own direction inside the sentence.
 const isolate = (text: string) => current === 'ar' && /[A-Za-z]/.test(text) ? `\u2068${text}\u2069` : text;
+/** Joins people's names with a translated separator; in Arabic each Latin name keeps its own direction, so the list
+ * reads right to left ("Meshal ضد Sultana" starts with Meshal on the right). */
+export const joinNames = (names: string[], separator: string) => names.map(isolate).join(separator);
 const fill = (text: string, vars?: Vars) => vars ? text.replace(/\{(\w+)\}/g, (match, name: string) => name in vars ? (typeof vars[name] === 'number' ? num(vars[name] as number) : isolate(String(vars[name]))) : match) : text;
 function lookup(en: string) {
   if (current !== 'ar') return en;
@@ -70,7 +73,8 @@ export function tn(en: string, nodes: Record<string, ReactNode>): ReactNode {
   return lookup(en).split(/(\{\w+\})/).map((part, i) => {
     const name = part.match(/^\{(\w+)\}$/)?.[1];
     const node = name && name in nodes ? nodes[name] : part;
-    return <Fragment key={i}>{name && typeof node === 'string' ? <bdi>{node}</bdi> : node}</Fragment>;
+    // Unicode isolates (not <bdi>): their direction skips names isolated inside them, like those from joinNames().
+    return <Fragment key={i}>{name && typeof node === 'string' ? isolate(node) : node}</Fragment>;
   });
 }
 

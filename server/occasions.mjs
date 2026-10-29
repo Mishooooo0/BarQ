@@ -32,21 +32,35 @@ export function templateLines(type, budget) {
   return type.lines.map(([label, share], i) => ({ id: `line-${i + 1}`, label, amount: Math.floor(budget * share / 100), done: false }));
 }
 
-/** Totals, countdown and how much to put aside each week to be ready on the day. */
+/**
+ * How much to put aside to be ready on the day: the part of the budget not bought or given yet, spread over the days
+ * left (and the weeks and months, counting a started month as a month). Nothing is left to save once the day has passed.
+ */
+export function savingPlan({ budget, done, daysLeft, past }) {
+  const amount = past ? 0 : round2(Math.max(0, budget - done));
+  const days = past ? 0 : daysLeft;
+  const weeks = Math.max(1, Math.ceil(days / 7)); const months = Math.max(1, Math.ceil(days / 30));
+  const per = parts => amount > 0 ? Math.ceil(amount / parts) : 0;
+  return { amount, days, weeks, months, perDay: per(Math.max(1, days)), perWeek: per(weeks), perMonth: per(months) };
+}
+
+/** Totals, countdown and the saving plan to be ready on the day. */
 export function publicOccasion(o, now = new Date()) {
   const type = findType(o.type);
   const today = dayKey(now);
   const planned = round2(sumOf(o.lines) + sumOf(o.eidia));
   const daysLeft = Math.max(0, daysBetween(today, o.date));
-  const weeksLeft = Math.max(1, Math.ceil(daysLeft / 7));
+  const past = o.date < today;
+  const done = round2(sumOf(o.lines.filter(l => l.done)) + sumOf(o.eidia.filter(p => p.given)));
+  const saving = savingPlan({ budget: o.budget, done, daysLeft, past });
   return {
     id: o.id, type: o.type, typeName: type?.name ?? o.type, hasEidia: !!type?.eidia, title: o.title, date: o.date, budget: o.budget,
     lines: o.lines, eidia: o.eidia, createdAt: o.createdAt, updatedAt: o.updatedAt,
     totals: {
       lines: sumOf(o.lines), eidia: sumOf(o.eidia), planned, left: round2(o.budget - planned), over: planned > o.budget,
-      done: round2(sumOf(o.lines.filter(l => l.done)) + sumOf(o.eidia.filter(p => p.given))),
+      done,
     },
-    daysLeft, past: o.date < today, perWeek: o.date < today ? 0 : Math.ceil(o.budget / weeksLeft),
+    daysLeft, past, saving, perWeek: saving.perWeek,
   };
 }
 
@@ -98,25 +112,29 @@ const SUGGESTION = {
     message: { type: 'string' }, pose: { type: 'string', enum: POSES },
     lines: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, amount: { type: 'number' }, note: { anyOf: [{ type: 'string' }, { type: 'null' }] } }, required: ['label', 'amount', 'note'], additionalProperties: false } },
     tips: { type: 'array', items: { type: 'string' } },
+    saving: { type: 'object', properties: { perDay: { type: 'number' }, perMonth: { type: 'number' }, tip: { type: 'string' } }, required: ['perDay', 'perMonth', 'tip'], additionalProperties: false },
   },
-  required: ['message', 'pose', 'lines', 'tips'], additionalProperties: false,
+  required: ['message', 'pose', 'lines', 'tips', 'saving'], additionalProperties: false,
 };
 
 /**
- * Asks Barq to split the part of the budget not already promised as Eidia. Amounts are whole riyals and are scaled
- * down if the answer goes over, so the suggestion always fits the budget.
+ * Asks Barq to split the part of the budget not already promised as Eidia, and to explain the saving plan (per day and
+ * per month until the date). Amounts are whole riyals and are scaled down if the answer goes over, so the suggestion
+ * always fits the budget; the saving numbers always come from savingPlan(), whatever the answer says.
  */
 export async function suggestPlan(occasion, user, monthSpend, ask, now = new Date()) {
   const view = publicOccasion(occasion, now);
   const available = Math.max(0, Math.floor(occasion.budget - view.totals.eidia));
+  const plan = view.saving;
   const { value, provider, fallbackReason } = await ask({
     task: 'occasion-plan',
-    instructions: `Plan the budget for this ${view.typeName} in Saudi Arabia. Split the available amount into 3 to 7 practical budget lines (short names, whole riyals) that add up to no more than the available amount. Keep the Eidia already listed as it is. Add a short note to a line only when it helps (for example, when to buy). Write a one-sentence message and 2 or 3 short, specific tips that use the real numbers, such as how much to put aside each week until the date. Pick a pose: celebrate or thumbs when the budget is comfortable, think when it is tight.`,
+    instructions: `Plan the budget for this ${view.typeName} in Saudi Arabia. Split the available amount into 3 to 7 practical budget lines (short names, whole riyals) that add up to no more than the available amount. Keep the Eidia already listed as it is. Add a short note to a line only when it helps (for example, when to buy). Write a one-sentence message and 2 or 3 short, specific tips about the lines (what to buy early, where to save). Fill "saving" with perDay and perMonth exactly as given in DATA.savingPlan and a one-sentence tip on how to put that much aside until the date (for example from each salary or into the Saving box). Pick a pose: celebrate or thumbs when the budget is comfortable, think when it is tight.`,
     schema: SUGGESTION,
     data: {
       occasion: view.typeName, occasionInArabic: findType(occasion.type)?.nameAr ?? view.typeName, title: occasion.title, date: occasion.date, today: dayKey(now), daysLeft: view.daysLeft, budget: occasion.budget,
       eidia: { people: occasion.eidia.length, total: view.totals.eidia }, available, currentLines: occasion.lines.map(l => ({ label: l.label, amount: l.amount })),
       wallet: { balance: user.balance, savingBox: user.savings ?? 0, spentLast30Days: monthSpend },
+      savingPlan: { amountToSave: plan.amount, daysLeft: plan.days, monthsLeft: plan.months, perDay: plan.perDay, perMonth: plan.perMonth },
     },
     validate: raw => {
       if (!Array.isArray(raw.lines)) throw new Error('lines must be a list');
@@ -127,9 +145,11 @@ export async function suggestPlan(occasion, user, monthSpend, ask, now = new Dat
       if (total > available) lines = lines.map(l => ({ ...l, amount: Math.floor(l.amount * available / total) })).filter(l => l.amount > 0);
       const tips = Array.isArray(raw.tips) ? raw.tips.filter(t => typeof t === 'string' && t.trim()).map(t => t.trim().slice(0, 240)).slice(0, 3) : [];
       if (typeof raw.message !== 'string' || !raw.message.trim()) throw new Error('missing message');
-      return { message: raw.message.trim().slice(0, 300), pose: POSES.includes(raw.pose) ? raw.pose : 'idea', lines, tips };
+      if (!raw.saving || typeof raw.saving.tip !== 'string' || !raw.saving.tip.trim()) throw new Error('missing saving tip');
+      return { message: raw.message.trim().slice(0, 300), pose: POSES.includes(raw.pose) ? raw.pose : 'idea', lines, tips, savingTip: raw.saving.tip.trim().slice(0, 240) };
     },
   });
   const total = value.lines.reduce((t, l) => t + l.amount, 0);
-  return { ...value, total, available, source: provider, fallbackReason: fallbackReason ?? null };
+  const { savingTip, ...rest } = value;
+  return { ...rest, saving: { ...plan, tip: savingTip }, total, available, source: provider, fallbackReason: fallbackReason ?? null };
 }

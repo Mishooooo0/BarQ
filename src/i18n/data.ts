@@ -1,6 +1,6 @@
 // Text that the server stores or sends in English (transaction sellers, category names, occasion types and their
 // starting lines, hangout results, spending alerts), shown in the chosen language.
-import { isArabic, percent, sar, t } from './index';
+import { isArabic, joinNames, percent, sar, t } from './index';
 import { ar } from './ar';
 import type { CategoryId, Hangout, Insights, OccasionTypeId, VoteChoice } from '../types/api';
 
@@ -36,7 +36,7 @@ export const noteText = (note: string) => notes[note] ? t(notes[note]) : note;
 export function hangoutResultText(result: NonNullable<Hangout['result']>) {
   if (!isArabic()) return result.label;
   if (result.payerName) return t('{name} pays the bill', { name: result.payerName });
-  if (result.outcome === 'game') return t('{players}: the highest score pays', { players: (result.players ?? []).map(p => p.name).join(t(' vs ')) });
+  if (result.outcome === 'game') return t('{players}: the highest total pays', { players: joinNames((result.players ?? []).map(p => p.name), t(' vs ')) });
   return result.outcome === 'split' ? t('Split the bill') : t('Everyone pays their own');
 }
 

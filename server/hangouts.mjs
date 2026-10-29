@@ -2,7 +2,7 @@
 //   split - split the bill equally      own - everyone pays for their own meal      pay - "I will pay it"
 // Rules when the vote ends:
 //   exactly one "I will pay it"          -> that person pays (even if everyone else chose something else)
-//   two or more "I will pay it"          -> those people play the game; the highest score pays
+//   two or more "I will pay it"          -> those people play three games (server/games.mjs); the highest total pays
 //   nobody volunteers                    -> split or own, whichever has more votes; a tie means everyone pays their own
 export const CHOICES = ['split', 'own', 'pay'];
 export const CHOICE_LABELS = { split: 'Split the bill', own: 'Everyone pays their own', pay: 'I will pay it' };

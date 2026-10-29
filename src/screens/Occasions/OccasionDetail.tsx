@@ -8,11 +8,20 @@ import { AnalystSprite } from '../Analyst/AnalystSprite';
 import { AnsweredBy, useRequest } from '../Analyst/parts';
 import { AmountInput, countdown, formatDay, todayKey } from './occasionParts';
 import { NumberField } from '../../components/NumberField';
-import type { EidiaEntry, Occasion, OccasionLine, OccasionPlan } from '../../types/api';
+import type { EidiaEntry, Occasion, OccasionLine, OccasionPlan, SavingPlan } from '../../types/api';
 import { digits, latinDigits, sar, t, tn, tp } from '../../i18n';
 import { knownText, occasionTypeName } from '../../i18n/data';
 
 type Patch = Partial<Pick<Occasion, 'title' | 'date' | 'budget' | 'lines' | 'eidia'>>;
+
+/** What to put aside per day and per month until the occasion, for what is still to buy or give. */
+function SavingPlanView({ plan }: { plan: SavingPlan }) {
+  return <section className="saving-plan" aria-label={t('Saving plan')}>
+    <h4>{t('Saving plan')}</h4>
+    <div className="insight-grid flat"><div>{t('Per day')}<Money amount={plan.perDay} /></div><div>{t('Per month')}<Money amount={plan.perMonth} /></div><div>{t('Days left')}<strong>{tp(plan.days, '{n} day', '{n} days')}</strong></div></div>
+    <p className="fine-print">{tn('To save: {amount} over {days} ({months}).', { amount: <Money amount={plan.amount} />, days: tp(plan.days, '{n} day', '{n} days'), months: tp(plan.months, '{n} month', '{n} months') })}</p>
+  </section>;
+}
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 /** One occasion: its budget lines, the Eidia list for the Eids, and Barq's suggested split. */
@@ -84,7 +93,8 @@ export function OccasionDetail() {
   const speech = plan.loading ? t('Splitting your budget… this can take up to a minute.') : plan.error ? plan.error : plan.data ? digits(plan.data.message)
     : o.past ? t('This occasion has passed. Keep it for reference or delete it.')
     : o.totals.over ? t("You've planned {amount} more than the budget. Lower a line or raise the budget.", { amount: sar(o.totals.planned - o.budget) })
-    : t('Put aside {amount} a week to have the full budget by {date}.', { amount: sar(o.perWeek), date: formatDay(o.date) });
+    : o.saving.amount > 0 ? t('Put aside {day} a day, or {month} a month, to have the rest of the budget by {date}.', { day: sar(o.saving.perDay), month: sar(o.saving.perMonth), date: formatDay(o.date) })
+    : t('Everything is bought or given. Nothing is left to save.');
   const pose = plan.loading ? 'laptop' : plan.error ? 'think' : plan.data ? plan.data.pose : o.totals.over ? 'receipt' : 'idea';
 
   return <><DetailHeader title={o.title} fallback="/occasions" /><div className="detail-content analyst-content">
@@ -98,6 +108,7 @@ export function OccasionDetail() {
       </div>
       <div className="progress" role="progressbar" aria-label={t('Planned of budget')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(o.totals.planned / o.budget * 100))}><span className={o.totals.over ? 'over' : ''} style={{ width: `${Math.min(100, o.totals.planned / o.budget * 100)}%` }} /></div>
       <p className="fine-print">{tn('Bought or given so far: {amount}', { amount: <Money amount={o.totals.done} /> })}</p>
+      {!o.past && <SavingPlanView plan={o.saving} />}
     </section>
     {saveError && <p className="error-text" role="alert">{saveError}</p>}
 
@@ -139,6 +150,7 @@ export function OccasionDetail() {
         <h3>{tn("Barq's split of {amount}", { amount: <Money amount={plan.data.available} /> })}</h3>
         <ul className="suggested-lines">{plan.data.lines.map(l => <li key={l.label}><span><bdi>{l.label}</bdi>{l.note && <small>{digits(l.note)}</small>}</span><Money amount={l.amount} /></li>)}</ul>
         {plan.data.tips.length > 0 && <ul className="tip-list">{plan.data.tips.map(tip => <li key={tip}>{digits(tip)}</li>)}</ul>}
+        {plan.data.saving.amount > 0 && <><SavingPlanView plan={plan.data.saving} /><p className="saving-tip">{digits(plan.data.saving.tip)}</p></>}
         <button type="button" className="primary-button" onClick={() => applyPlan(plan.data!)}>{t('Use this split')}</button>
         <p className="fine-print">{t('Replaces your budget lines. Your Eidia list stays as it is.')}</p>
         <AnsweredBy info={plan.data} />

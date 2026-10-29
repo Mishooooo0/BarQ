@@ -8,7 +8,7 @@ import { useSession } from '../../app/SessionProvider';
 import { cards, categories } from '../../data/mock';
 import { categoryNames, initials } from '../../lib/format';
 import { errorMessage } from '../../lib/api';
-import { latinDigits, sar, t, tp } from '../../i18n';
+import { joinNames, latinDigits, sar, t, tp } from '../../i18n';
 import { categoryName } from '../../i18n/data';
 import { MockNote, IconButton, Money } from '../ui/Primitives';
 import { PaymentDone } from '../PaymentDone';
@@ -57,7 +57,7 @@ function SheetBody({ sheet, close }: { sheet: SheetName; close: () => void }) {
   if (sheet === 'new-account') return <><div className="empty-state"><h2>{t('No youth accounts yet')}</h2><p>{t('Youth accounts you open will appear here.')}</p></div><p className="fine-print">{t("No account is opened and no child's personal information is collected.")}</p><button className="primary-button" onClick={close}>{t('Done')}</button></>;
   if (sheet === 'salary') return <><div className="empty-state"><h2>{t('No salary payees yet')}</h2><p>{t('Domestic workers you add will appear here with their monthly salary.')}</p></div><button className="primary-button" onClick={close}>{t('Done')}</button></>;
   if (sheet === 'offers') return <><p className="muted">{t('Explore the rewards available in this prototype.')}</p><Link className="selection-row" replace to="/rewards/marathon">{t('barq Marathon')}<ChevronRight size={18} /></Link><Link className="selection-row" replace to="/rewards/wheel">{t('Spin the Wheel')}<ChevronRight size={18} /></Link><Link className="selection-row" replace to="/rewards/quests">{t('Quests')}<ChevronRight size={18} /></Link><p className="fine-print">{t('These are simulated experiences, not live offers or guaranteed rewards.')}</p></>;
-  if (sheet === 'baloot') { const friends = directory.slice(0, 3).map(f => f.name); return <><div className="baloot-hand" aria-hidden="true"><span>J<br />♠</span><span>Q<br />♥</span><span>K<br />♠</span><span>A<br />♥</span></div><h3 className="center">{t('A seat at the table')}</h3><p className="center muted">{t('Open the lobby for a friendly Baloot game.')}</p><button className="primary-button" onClick={() => setDone(true)} disabled={done}>{done ? t('Table ready') : t('Find a table')}</button>{done && <div className="success-panel" role="status"><p>{friends.length ? t('You, {friends} are seated. Gameplay is coming soon.', { friends: friends.join(t(', ')) }) : t('You are seated. Gameplay is coming soon.')}</p></div>}</>; }
+  if (sheet === 'baloot') { const friends = directory.slice(0, 3).map(f => f.name); return <><div className="baloot-hand" aria-hidden="true"><span>J<br />♠</span><span>Q<br />♥</span><span>K<br />♠</span><span>A<br />♥</span></div><h3 className="center">{t('A seat at the table')}</h3><p className="center muted">{t('Open the lobby for a friendly Baloot game.')}</p><button className="primary-button" onClick={() => setDone(true)} disabled={done}>{done ? t('Table ready') : t('Find a table')}</button>{done && <div className="success-panel" role="status"><p>{friends.length ? t('You, {friends} are seated. Gameplay is coming soon.', { friends: joinNames(friends, t(', ')) }) : t('You are seated. Gameplay is coming soon.')}</p></div>}</>; }
   return <p className="muted">{t('This feature is not available yet.')}</p>;
 }
 const channels: Partial<Record<SheetName, TransferChannel>> = { 'transfer-wallet': 'wallet', 'local-bank': 'local', international: 'international' };

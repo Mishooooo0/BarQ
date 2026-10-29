@@ -73,6 +73,33 @@ test('Hangouts opens from Home and More', async ({ page }) => {
   await expect(page.getByRole('list', { name: 'Members' })).toBeVisible();
 });
 
+test('Create a group: name it, pick friends, and it is selected on the Hangouts page', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/hangouts');
+  await page.getByRole('button', { name: 'Create a group' }).click();
+  const form = page.getByRole('form', { name: 'Create a group' });
+  await form.getByRole('button', { name: 'Create the group' }).click();
+  await expect(form.getByRole('alert')).toHaveText('Give the group a name.');
+  await form.getByLabel('Group name').fill('Weekend crew');
+  await form.getByRole('button', { name: 'Create the group' }).click();
+  await expect(form.getByRole('alert')).toHaveText('Choose at least one friend for the group.');
+  await form.getByLabel('Sultana').check();
+  await form.getByLabel('Rasel').check();
+  await form.getByRole('button', { name: 'Create the group' }).click();
+  await expect(page.getByRole('radio', { name: 'Weekend crew' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('list', { name: 'Members' }).getByRole('listitem')).toHaveCount(3);
+  // Sultana sees the new group too.
+  const sultana = await apiToken(page, 'sultana');
+  const groups = await (await page.request.get('/api/me/groups', { headers: { authorization: `Bearer ${sultana}` } })).json();
+  expect(groups.map((g: { name: string }) => g.name)).toContain('Weekend crew');
+  // The same name again is refused.
+  await page.getByRole('button', { name: 'Create a group' }).click();
+  await page.getByLabel('Group name').fill('weekend crew');
+  await page.getByLabel('Rasel').check();
+  await page.getByRole('button', { name: 'Create the group' }).click();
+  await expect(page.getByRole('form', { name: 'Create a group' }).getByRole('alert')).toHaveText('You already have a group called weekend crew.');
+});
+
 test('a member can add someone to a group on the Hangouts page', async ({ page }) => {
   addGroup('weekend', 'Weekend crew', ['meshal', 'abdullah-m']);
   await signIn(page);
@@ -156,7 +183,7 @@ test('who pays: one "I will pay it" wins and that person pays the bill', async (
   await expect(ended.locator('.hangout-result')).toHaveText('Meshal pays the bill');
 });
 
-test('who pays: two volunteers play Flappy Bird and the highest score pays', async ({ page }) => {
+test('who pays: two volunteers play three games, Flappy Bird first, and the highest total pays', async ({ page }) => {
   fund('meshal', 500);
   await signIn(page);
   const card = await planAndAsk(page);
@@ -165,25 +192,44 @@ test('who pays: two volunteers play Flappy Bird and the highest score pays', asy
   for (const id of ['abdullah-m', 'abdullah-s']) await voteAs(page, id, 'split');
   await voteAs(page, 'rasel', 'own');
   await page.reload();
-  await expect(card.locator('.hangout-result')).toHaveText('Meshal vs Sultana: the highest score pays');
-  await card.getByRole('link', { name: 'Play the game' }).click();
-  // Playing the real game in a test is not practical, so the frame reports a finished flight the way the game does.
-  const finishFlight = async (points: number) => {
-    const game = page.frameLocator('iframe[title="Flappy Bird"]');
-    await expect(game.locator('#g-fly')).toBeVisible();
-    await game.locator('body').evaluate((_, value) => parent.postMessage({ type: 'points-games:score', game: 'fly', score: value }, location.origin), points);
-  };
-  // Meshal plays his own turn on his phone.
-  await page.getByRole('button', { name: 'Play Flappy Bird' }).click();
-  await finishFlight(3);
-  await expect(page.getByRole('list', { name: 'Scores' })).toContainText('3');
-  await expect(page.getByRole('button', { name: 'Play Flappy Bird' })).toHaveCount(0);
-  // Sultana plays on her own phone: her turn is recorded through the API, and Meshal's board updates by itself.
+  await expect(card.locator('.hangout-result')).toHaveText('Meshal vs Sultana: the highest total pays');
+  await card.getByRole('link', { name: 'Play the games' }).click();
   const sultana = await apiToken(page, 'sultana');
-  const hangouts = await (await page.request.get('/api/hangouts', { headers: { authorization: `Bearer ${sultana}` } })).json();
-  const scored = await page.request.post(`/api/game-sessions/${hangouts[0].sessionId}/scores`, { headers: { authorization: `Bearer ${sultana}` }, data: { playerId: 'sultana', points: 8 } });
-  expect(scored.status()).toBe(200);
+  const auth = { headers: { authorization: `Bearer ${sultana}` } };
+  const hangouts = await (await page.request.get('/api/hangouts', auth)).json();
+  const session = await (await page.request.get(`/api/game-sessions/${hangouts[0].sessionId}`, auth)).json();
+  const games = await (await page.request.get('/api/games')).json() as { id: string; name: string; engine: string }[];
+  const order = session.rounds.map((round: { gameId: string }) => games.find(g => g.id === round.gameId)!);
+  expect(order.map(g => g.engine)[0]).toBe('fly');
+  expect(new Set(order.map(g => g.id)).size).toBe(3);
+  await expect(page.getByRole('list', { name: 'The games' })).toHaveText(order.map((g, i) => `${i + 1}${g.name}`).join(''));
+  // Playing the real games in a test is not practical, so each frame reports a finished game the way the games do.
+  const play = async (i: number, points: number) => {
+    await page.getByRole('button', { name: `Play ${order[i].name}` }).click();
+    await expect(page.getByText(`Game ${i + 1} of 3: ${order[i].name}`)).toBeVisible();
+    const frame = page.frameLocator(`iframe[title="${order[i].name}"]`);
+    await expect(frame.locator(`#g-${order[i].engine}`)).toBeVisible();
+    // A score from a different game is ignored; only the game being played counts.
+    const wrong = games.find(g => g.engine !== order[i].engine)!.engine;
+    await frame.locator('body').evaluate((_, [game, value]) => parent.postMessage({ type: 'points-games:score', game, score: value }, location.origin), [wrong, 999] as const);
+    await frame.locator('body').evaluate((_, [game, value]) => parent.postMessage({ type: 'points-games:score', game, score: value }, location.origin), [order[i].engine, points] as const);
+    await expect(page.locator('iframe')).toHaveCount(0);
+  };
+  // Meshal plays his three games in order on his phone, without waiting for Sultana.
+  await play(0, 3);
+  await expect(page.getByRole('list', { name: 'Scores' })).toContainText('1 of 3 games played');
+  await play(1, 40);
+  await play(2, 20);
+  await expect(page.getByRole('list', { name: 'Scores' })).toContainText('Played every game');
+  await expect(page.getByRole('list', { name: 'Scores' })).toContainText('63 points');
+  await expect(page.getByText('You have played all 3 games.')).toBeVisible();
+  // Sultana plays on her own phone: her games are recorded through the API, and Meshal's board updates by itself.
+  for (const [i, points] of [8, 50, 30].entries()) {
+    const scored = await page.request.post(`/api/game-sessions/${session.id}/scores`, { ...auth, data: { playerId: 'sultana', points, gameId: session.rounds[i].gameId } });
+    expect(scored.status()).toBe(200);
+  }
   await expect(page.getByRole('heading', { name: 'Sultana pays the bill' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Highest total: 88 points.')).toBeVisible();
   await page.getByRole('link', { name: 'Back to Hangouts' }).click();
   await expect(page.locator('.hangout-card').first().locator('.hangout-result')).toHaveText('Sultana pays the bill');
 });
@@ -260,11 +306,21 @@ test('Occasions: plan Eid al-Fitr with an Eidia list and use Barq\'s split', asy
   await page.getByLabel('Eidia amount').fill('200');
   await page.getByLabel('Eidia amount').press('Enter');
   await expect(page.getByRole('heading', { name: /Eidia · .*300\.00 for 2 people/ })).toBeVisible();
+  // The saving plan: what is not bought or given yet, per day and per month until Eid.
+  const plan = page.locator('.occasion-summary').getByRole('region', { name: 'Saving plan' });
+  await expect(plan).toContainText('Per day');
+  await expect(plan).toContainText('Per month');
+  await expect(page.locator('.analyst-bubble')).toContainText('a day, or');
   await page.getByLabel('Given to Faisal').check();
   await expect(page.getByText(/Bought or given so far: .*200\.00/)).toBeVisible();
   await page.getByRole('button', { name: 'Split the rest of my budget' }).click();
   await expect(page.locator('.analyst-bubble')).toHaveText('Fake plan for Eid al-Fitr.');
   await expect(page.getByText('Answered by Barq AI.')).toBeVisible();
+  // Barq's answer includes the saving plan until the date: per day and per month.
+  const split = page.locator('.info-panel').filter({ hasText: "Barq's split" });
+  await expect(split.getByRole('region', { name: 'Saving plan' })).toContainText('Per day');
+  await expect(split.getByRole('region', { name: 'Saving plan' })).toContainText('Per month');
+  await expect(split.locator('.saving-tip')).toHaveText('Move it to the Saving box on payday.');
   await page.getByRole('button', { name: 'Use this split' }).click();
   await expect(lines.getByRole('listitem')).toHaveCount(3);
   await expect(lines).toContainText('Clothes');

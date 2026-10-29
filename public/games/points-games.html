@@ -629,12 +629,18 @@ document.querySelectorAll('.tab, .game-row').forEach(b => b.addEventListener('cl
 // Embedded in the barq app (?embed): the app supplies the tab bar, and back from the hub returns to the app.
 const EMBED = new URLSearchParams(location.search).has('embed');
 document.documentElement.classList.toggle('embed', EMBED);
-// Hangout "who pays" games (?play=fly&report): open the game directly and send the final score to the app once.
+// Hangout "who pays" games (?play=stack|react|aim|num|fly&report): open that game directly and send its final
+// score to the app once. Back closes the game in the app instead of opening the hub.
 const PLAY = new URLSearchParams(location.search).get('play');
 const REPORT = new URLSearchParams(location.search).has('report');
 let reported = false;
+function reportScore(game, score){
+  if(!REPORT || reported || game !== PLAY) return;
+  reported = true;
+  parent.postMessage({ type:'points-games:score', game, score }, location.origin);
+}
 $('back').addEventListener('click', () => {
-  if(active === 'hub' && EMBED) parent.postMessage({ type:'points-games:close' }, location.origin);
+  if(EMBED && (active === 'hub' || PLAY)) parent.postMessage({ type:'points-games:close' }, location.origin);
   else show('hub');
 });
 // Hub artwork: mascot poses at 2x, cropped by the pastel squares.
@@ -779,6 +785,7 @@ function skDrop(){
 }
 function skEnd(){
   sk.running = false; sk.over = true;
+  reportScore('stack', sk.score);
   addDebris(sk.cur.x, sk.cur.w, sk.cur.hue);
   if(!sk.raf) sk.raf = requestAnimationFrame(skFrame);
   skDraw();
@@ -901,6 +908,7 @@ function rxAfter(){
   const b = $('react-btn');
   b.hidden = false;
   if(rx.round >= 5){
+    reportScore('react', rx.score);
     $('react-msg').textContent = 'انتهت الجولات. مجموعك ' + rx.score + ' من 500';
     b.textContent = 'ابدأ من جديد';
     b.onclick = rxBegin;
@@ -966,6 +974,7 @@ function amNext(){
 }
 function amEnd(){
   am.running = false;
+  reportScore('aim', am.score);
   cancelAnimationFrame(am.raf);
   amDraw();
   $('aim-msg').textContent = 'انتهت الجولة. نقاطك: ' + am.score + ' من 500';
@@ -1074,6 +1083,7 @@ nmField.addEventListener('click', e => {
   if(nm.next > nm.total){
     nm.on = false;
     clearInterval(nm.iv);
+    reportScore('num', nm.score);
     const secs = ((now - nm.t0) / 1000).toFixed(1);
     $('num-timer').textContent = secs + 's';
     $('num-msg').textContent = 'انتهيت في ' + secs + ' ثانية. نقاطك ' + nm.score;
@@ -1378,7 +1388,7 @@ function flPanel(html){
 }
 function flOver(){
   fl.state = 'over';
-  if(REPORT && !reported){ reported = true; parent.postMessage({ type:'points-games:score', game:'fly', score:fl.score }, location.origin); }
+  reportScore('fly', fl.score);
   fl.newBest = fl.score > fl.best;
   const m = flMeters();
   if(fl.newBest) fl.best = fl.score;

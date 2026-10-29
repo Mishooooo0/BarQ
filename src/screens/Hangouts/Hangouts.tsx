@@ -7,9 +7,10 @@ import { DetailHeader, ErrorState, MockNote, Money } from '../../components/ui/P
 import { AnalystSprite } from '../Analyst/AnalystSprite';
 import { AnsweredBy, BudgetSlider, PlanView, useRequest, wholeRiyals } from '../Analyst/parts';
 import { HangoutVotes } from './HangoutVotes';
+import { CreateGroup } from './CreateGroup';
 import { PaymentDone } from '../../components/PaymentDone';
 import type { Group, Hangout, HangoutPlan, Pose } from '../../types/api';
-import { digits, t } from '../../i18n';
+import { digits, joinNames, t } from '../../i18n';
 
 /** Hangouts: your groups, the AI plan for an outing, and the group's "who pays?" votes. */
 export function Hangouts() {
@@ -54,6 +55,8 @@ export function Hangouts() {
       void fetchHangouts();
     } catch (error) { setAsking({ busy: false, error: errorMessage(error) }); }
   };
+  // A new group is selected right away.
+  const created = (group: Group) => { setGroupId(group.id); void fetchGroups(); };
   const addMember = async () => {
     if (!newMember || adding.busy) return;
     setAdding({ busy: true, error: '', done: '' });
@@ -77,8 +80,9 @@ export function Hangouts() {
   const outside = group ? directory.filter(d => !group.members.some(m => m.id === d.id)) : [];
   return <><DetailHeader title={t('Hangouts')} fallback="/" /><div className="detail-content analyst-content">
     <section className="analyst-hero" aria-live="polite"><AnalystSprite pose={pose} /><p className="analyst-bubble">{speech}</p></section>
-    {groups.error ? <ErrorState message={groups.error} onRetry={fetchGroups} /> : !groups.data ? <p className="muted center" role="status">{t('Loading groups…')}</p> : !groups.data.length ? <p className="muted">{t('You are not in any group yet.')}</p> : <>
+    {groups.error ? <ErrorState message={groups.error} onRetry={fetchGroups} /> : !groups.data ? <p className="muted center" role="status">{t('Loading groups…')}</p> : !groups.data.length ? <><p className="muted">{t('You are not in any group yet.')}</p><CreateGroup people={directory} onCreated={created} /></> : <>
       <div className="group-chips" role="radiogroup" aria-label={t('Group')}>{groups.data.map(g => <button key={g.id} role="radio" aria-checked={g.id === groupId} onClick={() => setGroupId(g.id)}><Users size={14} /> <bdi>{g.name}</bdi></button>)}</div>
+      <CreateGroup people={directory} onCreated={created} />
       {group && <ul className="member-list" aria-label={t('Members')}>{group.members.map(m => <li key={m.id}><span className={`dot ${m.ready || m.id === user.id ? 'ready' : ''}`} />{m.id === user.id ? t('{name} (you)', { name: m.name }) : m.name}<small>{m.id === user.id ? t('your budget below') : m.ready ? t('budget set') : t('no budget yet')}</small></li>)}</ul>}
       {group && outside.length > 0 && <div className="add-member">
         <label className="sr-only" htmlFor="add-member">{t('Add someone to {group}', { group: group.name })}</label>
@@ -92,7 +96,7 @@ export function Hangouts() {
       <button className="primary-button" onClick={runPlan} disabled={plan.loading || !groupId}>{plan.loading ? t('Planning…') : t('Plan the hangout')}</button>
       {plan.error && <ErrorState message={plan.error} onRetry={runPlan} />}
       {plan.data && !plan.error && <>
-        <div className="info-panel per-person"><p>{t('Budget per person everyone can manage')}</p><Money amount={plan.data.perPersonBudget} />{plan.data.pending.length > 0 && <p className="fine-print">{t('Planned without {names}: no budget set yet.', { names: plan.data.pending.join(t(', ')) })}</p>}</div>
+        <div className="info-panel per-person"><p>{t('Budget per person everyone can manage')}</p><Money amount={plan.data.perPersonBudget} />{plan.data.pending.length > 0 && <p className="fine-print">{t('Planned without {names}: no budget set yet.', { names: joinNames(plan.data.pending, t(', ')) })}</p>}</div>
         <PlanView items={plan.data.items} footer={<><div><span>{t('Per person')}</span><Money amount={plan.data.perPersonTotal} /></div><div><span>{t('Whole group ({count})', { count: plan.data.groupSize })}</span><Money amount={plan.data.groupTotal} /></div></>} />
         <AnsweredBy info={plan.data} />
         {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? t('Starting the vote…') : t("Ask the group: who's paying?")}</button>}
@@ -105,7 +109,7 @@ export function Hangouts() {
           <button role="tab" aria-selected={view === 'history'} aria-pressed={view === 'history'} onClick={() => setView('history')}>{history ? t('History ({count})', { count: history.length }) : t('History')}</button>
         </div>
         {view === 'active' ? <>
-          <p className="fine-print">{t('One "I will pay it" pays. Two or more play Flappy Bird, each on their own phone, and the highest score pays. Otherwise the most votes win, and a tie means everyone pays their own.')}</p>
+          <p className="fine-print">{t('One "I will pay it" pays. Two or more play three games, each on their own phone: Flappy Bird first, then two at random. The highest total pays. Otherwise the most votes win, and a tie means everyone pays their own.')}</p>
           <HangoutVotes hangouts={active} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} onPaid={setPaid} empty={t("No active hangouts. Plan one above, then ask the group who's paying.")} />
         </> : <HangoutVotes hangouts={history} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} empty={t('Finished hangouts appear here once everyone has paid.')} />}
       </section>

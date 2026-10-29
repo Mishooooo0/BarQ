@@ -68,7 +68,7 @@ PINs are stored as salted scrypt hashes. A session is a signed token that lasts 
 | Database | Where | Contents |
 | --- | --- | --- |
 | Users | `data/db/users.json` (created on first run, not committed) | 5 users: name, PIN hash, balance, Saving box amount and goal, cashback, hangout budget, occasions (budget lines and Eidia) and transactions (seller, category, amount, date), all starting empty. Groups of friends. |
-| Games | `data/db/games.json` (created on first run, not committed) | One game for now, **Flappy Bird** (the flying game in Points Challenges), game sessions, and hangouts with their "who pays?" votes |
+| Games | `data/db/games.json` (created on first run, not committed) | The five Points Challenges games (**Flappy Bird**, Building Challenge, Reaction, Precision Challenge, Number Order), game sessions, and hangouts with their "who pays?" votes. Older databases get the four newer games added on start. |
 | Payments | `data/db/payments.json` (created on first run, not committed) | Purchases made from Market → Pay at places, stored as **name, price, category, date** (plus id, user, place id and the wallet transaction id) |
 | Places & Categories | `data/categories.json`, `data/riyadh_all_seven_categories_v2.jsonl` (committed, read-only) | 7 category templates (Food, Cafe, Health, Shopping, Groceries, Transportation, Entertainment) and 208 Riyadh places |
 
@@ -89,6 +89,7 @@ The directory (`GET /api/users`) is open; anything under `/api/me` needs a sessi
 | `POST /api/me/transactions` `{ kind: topup\|purchase\|cashback, amount, seller, category }` | Changes the stored balance |
 | `POST /api/transfers` `{ to, amount, channel }` | Moves money between two accounts |
 | `PUT /api/me/budget` `{ amount }` · `GET /api/me/groups` | Hangout budget and friend groups |
+| `POST /api/groups` `{ name, members }` | Create a group with registered friends (you are always a member; up to 20 people) |
 | `POST /api/groups/:id/members` `{ userId }` | Add a registered user to a group (members only) |
 | `GET /api/analyst/insights` | Spending facts computed from your history (instant) |
 | Header `x-barq-language: en\|ar` | The language Barq writes in for the AI routes below (English by default) |
@@ -99,7 +100,7 @@ The directory (`GET /api/users`) is open; anything under `/api/me` needs a sessi
 | `GET /api/occasion-types` · `GET /api/occasions` · `POST /api/occasions` `{ type, budget, date?, title? }` | Occasion types (with expected Eid dates); your occasions; start one with suggested budget lines |
 | `PUT /api/occasions/:id` `{ title?, date?, budget?, lines?, eidia? }` · `DELETE /api/occasions/:id` · `POST /api/occasions/:id/plan` | Edit an occasion (lines and Eidia are sent as whole lists), delete it, or ask Barq to split its budget |
 | `GET /api/savings` · `PUT /api/savings/goal` `{ target }` · `POST /api/savings/deposit` · `POST /api/savings/withdraw` `{ amount }` | Saving box, its end-of-year goal, and moving money between the wallet and the box |
-| `GET /api/games` · `POST /api/game-sessions` · `GET /api/game-sessions/:id` · `POST /api/game-sessions/:id/scores` · `POST /api/game-sessions/:id/settle` | Who-pays-the-bill games |
+| `GET /api/games` · `POST /api/game-sessions` · `GET /api/game-sessions/:id` · `POST /api/game-sessions/:id/scores` `{ playerId, points, gameId? }` · `POST /api/game-sessions/:id/settle` | Who-pays-the-bill games |
 
 Send the token as `Authorization: Bearer <token>`. Errors are always JSON: `{ "error": "message" }`.
 
@@ -120,7 +121,7 @@ After the analyst plans a hangout on the **Hangouts** page, tap **Ask the group:
 | Votes | Result |
 | --- | --- |
 | Exactly one "I will pay it" (e.g. 3 split, 1 I will pay) | That person pays the whole bill |
-| Two or more "I will pay it" | Those people play Flappy Bird, each on their own phone (or the host hands one phone around); the highest score pays |
+| Two or more "I will pay it" | Those people play three games, each on their own phone (or the host hands one phone around): Flappy Bird first, then two of the other four at random. The highest total pays |
 | Nobody volunteers | Split or own, whichever has more votes |
 | Nobody volunteers and split ties with own | Everyone pays their own |
 
@@ -134,8 +135,9 @@ Open **Occasions** from Home or More → Explore to prepare a budget for **Eid a
 
 - change any amount, add or remove lines, and tick lines off when bought;
 - for the two Eids, keep an **Eidia** list: who you give to, how much, and tick each one when given;
-- see the budget, what is planned and what is left (or how much it is over), and how much to put aside each week until the day;
-- tap **Split my budget** and Barq suggests lines and tips for the part of the budget not already promised as Eidia. Its amounts are always scaled to fit the budget. **Use this split** replaces the lines and keeps the Eidia list.
+- see the budget, what is planned and what is left (or how much it is over);
+- see the **saving plan**: what is not bought or given yet, spread over the days left, as an amount per day and per month (a started month counts as a month);
+- tap **Split my budget** and Barq suggests lines and tips for the part of the budget not already promised as Eidia. Its amounts are always scaled to fit the budget, and its structured answer includes the saving plan (per day and per month) with a tip on how to put it aside; the numbers always come from the server's own calculation. **Use this split** replaces the lines and keeps the Eidia list.
 
 The rules and templates are in [`server/occasions.mjs`](server/occasions.mjs).
 
@@ -161,7 +163,11 @@ Open **Market → Pay at places** to buy from any of the 208 places in the Categ
 
 ## Game system
 
-`POST /api/game-sessions` with 2 to 5 players and an optional bill. Every active game is played once in random order (one game for now). The host enters each player's points; when every player has scored in every game, the player with the most points pays. A tie goes to the best single round, then to the earlier player in the list. `settle` charges the payer's wallet. The games UI (Points Challenges) is not connected to sessions yet.
+All five Points Challenges games are connected (`public/games/points-games.html`). A session is three games: **Flappy Bird first**, then two of the other four at random (Building Challenge, Reaction, Precision Challenge, Number Order). Each game already counts points (higher is better), so points simply add up.
+
+In a hangout, each volunteer plays their three games in order on their own phone, without waiting for the others: the app opens the next game (`?play=<engine>&report`), and when it ends the game sends its score to the app, which saves it for that game (`gameId`), so a score from a game already played, or from another game, is refused. The host can also hand one phone around (**Play for …**). When everyone has played all three, the highest total pays; a tie goes to the best single game, then to the earlier player in the list.
+
+`POST /api/game-sessions` (2 to 5 players and an optional bill) works the same way outside hangouts, with the host entering each player's points; `settle` charges the payer's wallet. The Points Challenges page itself still lets anyone play any game freely; it only reports scores inside a hangout game.
 
 ## Architecture
 

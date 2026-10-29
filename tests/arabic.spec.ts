@@ -84,6 +84,18 @@ test('occasions, Eidia and the Saving box work in Arabic with Arabic digits', as
   await expect(page.getByRole('progressbar', { name: 'تقدّمك للهدف' })).toHaveAttribute('aria-valuenow', '38');
 });
 
+test('in Arabic, groups are "شلة": create one from the Hangouts page', async ({ page }) => {
+  await signInArabic(page, 'Sultana', '٤٠٠٤');
+  await page.goto('/hangouts');
+  await page.getByRole('button', { name: 'أضف شلة جديدة' }).click();
+  const form = page.getByRole('form', { name: 'أضف شلة جديدة' });
+  await form.getByLabel('اسم الشلة').fill('شلة الويكند');
+  await form.getByLabel('Meshal').check();
+  await form.getByRole('button', { name: 'سوّ الشلة' }).click();
+  await expect(page.getByRole('radio', { name: 'شلة الويكند' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('list', { name: 'الأعضاء' }).getByRole('listitem')).toHaveCount(2);
+});
+
 // Words that may stay in Latin letters: people's names, the group name, the "English" toggle, card brand marks and
 // reference codes. Place names, addresses and districts from the Places database are added below.
 const allowed = new Set(['Abdullah', 'ABDULLAH', 'M', 'S', 'Meshal', 'MESHAL', 'Sultana', 'Rasel', 'BarQ', 'Developers', 'English', 'J', 'Q', 'K', 'A', 'BARQ']);
