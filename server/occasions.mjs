@@ -5,11 +5,11 @@ import { addDays, dayKey, daysBetween } from './time.mjs';
 // Each type starts with suggested lines as a share (%) of the budget. The Eid lines leave a quarter for Eidia.
 // Eid dates follow the moon, so these are the expected dates; people can change them.
 export const OCCASION_TYPES = [
-  { id: 'eid-fitr', name: 'Eid al-Fitr', eidia: true, dates: ['2027-03-09', '2028-02-27', '2029-02-15'], lines: [['Eid clothes', 30], ['Sweets, dates and coffee', 15], ['Family gathering', 20], ['Gifts', 10]] },
-  { id: 'eid-adha', name: 'Eid al-Adha', eidia: true, dates: ['2026-05-27', '2027-05-16', '2028-05-05', '2029-04-24'], lines: [['Udhiyah (sacrifice)', 45], ['Eid clothes', 15], ['Family gathering', 15]] },
-  { id: 'graduation', name: 'Graduation', eidia: false, lines: [['Venue', 30], ['Cake and sweets', 15], ['Gift', 25], ['Photos', 15], ['Decorations', 15]] },
-  { id: 'home-party', name: 'Home party', eidia: false, lines: [['Food', 40], ['Drinks and sweets', 20], ['Decorations', 15], ['Games and music', 10], ['Cleaning', 15]] },
-  { id: 'holiday', name: 'Holiday trip', eidia: false, lines: [['Travel', 35], ['Stay', 35], ['Food', 15], ['Activities', 15]] },
+  { id: 'eid-fitr', name: 'Eid al-Fitr', nameAr: 'عيد الفطر', eidia: true, dates: ['2027-03-09', '2028-02-27', '2029-02-15'], lines: [['Eid clothes', 30], ['Sweets, dates and coffee', 15], ['Family gathering', 20], ['Gifts', 10]] },
+  { id: 'eid-adha', name: 'Eid al-Adha', nameAr: 'عيد الأضحى', eidia: true, dates: ['2026-05-27', '2027-05-16', '2028-05-05', '2029-04-24'], lines: [['Udhiyah (sacrifice)', 45], ['Eid clothes', 15], ['Family gathering', 15]] },
+  { id: 'graduation', name: 'Graduation', nameAr: 'حفلة تخرّج', eidia: false, lines: [['Venue', 30], ['Cake and sweets', 15], ['Gift', 25], ['Photos', 15], ['Decorations', 15]] },
+  { id: 'home-party', name: 'Home party', nameAr: 'عزيمة بالبيت', eidia: false, lines: [['Food', 40], ['Drinks and sweets', 20], ['Decorations', 15], ['Games and music', 10], ['Cleaning', 15]] },
+  { id: 'holiday', name: 'Holiday trip', nameAr: 'سفرة', eidia: false, lines: [['Travel', 35], ['Stay', 35], ['Food', 15], ['Activities', 15]] },
 ];
 export const MAX_OCCASIONS = 20;
 const MAX_LINES = 15;
@@ -114,7 +114,7 @@ export async function suggestPlan(occasion, user, monthSpend, ask, now = new Dat
     instructions: `Plan the budget for this ${view.typeName} in Saudi Arabia. Split the available amount into 3 to 7 practical budget lines (short names, whole riyals) that add up to no more than the available amount. Keep the Eidia already listed as it is. Add a short note to a line only when it helps (for example, when to buy). Write a one-sentence message and 2 or 3 short, specific tips that use the real numbers, such as how much to put aside each week until the date. Pick a pose: celebrate or thumbs when the budget is comfortable, think when it is tight.`,
     schema: SUGGESTION,
     data: {
-      occasion: view.typeName, title: occasion.title, date: occasion.date, today: dayKey(now), daysLeft: view.daysLeft, budget: occasion.budget,
+      occasion: view.typeName, occasionInArabic: findType(occasion.type)?.nameAr ?? view.typeName, title: occasion.title, date: occasion.date, today: dayKey(now), daysLeft: view.daysLeft, budget: occasion.budget,
       eidia: { people: occasion.eidia.length, total: view.totals.eidia }, available, currentLines: occasion.lines.map(l => ({ label: l.label, amount: l.amount })),
       wallet: { balance: user.balance, savingBox: user.savings ?? 0, spentLast30Days: monthSpend },
     },

@@ -91,6 +91,7 @@ The directory (`GET /api/users`) is open; anything under `/api/me` needs a sessi
 | `PUT /api/me/budget` `{ amount }` · `GET /api/me/groups` | Hangout budget and friend groups |
 | `POST /api/groups/:id/members` `{ userId }` | Add a registered user to a group (members only) |
 | `GET /api/analyst/insights` | Spending facts computed from your history (instant) |
+| Header `x-barq-language: en\|ar` | The language Barq writes in for the AI routes below (English by default) |
 | `GET /api/analyst/advice` · `POST /api/analyst/daily` `{ budget }` · `POST /api/analyst/hangout` `{ budget, groupId }` | Claude's headline and tips, daily plan, hangout plan |
 | `GET /api/hangouts?groupId=` · `POST /api/hangouts` `{ groupId, items }` | Group hangouts and their votes; start a vote from a planned hangout |
 | `POST /api/hangouts/:id/vote` `{ choice: split\|own\|pay }` · `POST /api/hangouts/:id/close` · `POST /api/hangouts/:id/pay` | Vote, end the vote early (starter only), pay your part |
@@ -141,6 +142,18 @@ The rules and templates are in [`server/occasions.mjs`](server/occasions.mjs).
 ## Saving box
 
 Open **Saving box** from the strip under the balance on Home, the card on Home, or More → Explore. Set a goal for the amount you want saved by **31 December** of this year, then move money from your wallet into the box (or back out). Barq shows the progress and how much to save each week and each day to reach the goal, and celebrates when you reach it. Moves are wallet transactions of the kind "savings", so they appear in your history but never count as spending. The logic is in [`server/savings.mjs`](server/savings.mjs).
+
+## Arabic
+
+Tap **العربية** on the sign-in screen, in the Products header or in the account sheet to switch the whole app to Arabic (and **English** to switch back). The choice is remembered on the device.
+
+- Every screen, sheet, button, error message and accessibility label is in Arabic, written in a warm, everyday Saudi voice.
+- The layout turns right to left (navigation, lists, arrows, sliders), using the IBM Plex Sans Arabic font.
+- Amounts, dates, times, counts and percentages use Arabic-Indic digits (١٢٣) with Arabic separators, so prices read like ١٬٣٦٥٫٠٠ next to the riyal sign. Number fields accept Arabic or Western digits.
+- Text the server stores in English (transaction titles, categories, occasion types and their starting lines, hangout results, spending alerts, error messages) is shown in Arabic. People's and places' own names stay as they are.
+- The AI follows the chosen language: the app sends `x-barq-language: ar`, the request's data says `language: "Arabic"`, and Barq is told to write every text value in Arabic. Answers that are not mostly Arabic are rejected and retried, the same way English answers are checked.
+
+The text lives in [`src/i18n/ar.ts`](src/i18n/ar.ts), keyed by the English text. `npm test` checks that every English text in the app has Arabic, that counted texts have Arabic plural forms, and that the Arabic keeps every placeholder and contains no English.
 
 ## Market → Pay at places
 

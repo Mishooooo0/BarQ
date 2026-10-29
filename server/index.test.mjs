@@ -27,8 +27,8 @@ before(async () => {
 });
 after(() => { server.close(); fake.close(); rmSync(dir, { recursive: true, force: true }); });
 
-async function call(method, url, { body, token, raw } = {}) {
-  const res = await fetch(base + url, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined) });
+async function call(method, url, { body, token, raw, language } = {}) {
+  const res = await fetch(base + url, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}), ...(language ? { 'x-barq-language': language } : {}) }, body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined) });
   const type = res.headers.get('content-type') ?? '';
   return { status: res.status, body: type.includes('json') ? await res.json() : await res.text() };
 }
@@ -186,6 +186,33 @@ test('answers must be in English: a Chinese reply is rejected and retried', asyn
   const { status, body } = await call('POST', '/api/analyst/daily', { token, body: { budget: 66 } });
   assert.equal(status, 200);
   assert.equal(body.message, 'Fake plan for SAR 66.');
+});
+
+test('the AI writes in the language the app sends: Arabic for ar, English otherwise', async () => {
+  const token = await login('sultana');
+  const tips = (await call('GET', '/api/analyst/advice', { token, language: 'ar' })).body;
+  assert.equal(tips.headline, 'نصيحة تجريبية لـSultana');
+  assert.equal((await call('GET', '/api/analyst/advice', { token, language: 'fr' })).body.headline, 'Fake advice for Sultana');
+  const plan = (await call('POST', '/api/analyst/daily', { token, language: 'ar', body: { budget: 150 } })).body;
+  assert.equal(plan.message, 'خطة تجريبية بميزانية 150 ريال.');
+  assert.ok(plan.items.some(item => item.label === 'قهوة الصبح'));
+  // An English reply to an Arabic request is rejected and retried.
+  const retried = await call('POST', '/api/analyst/daily', { token, language: 'ar', body: { budget: 55 } });
+  assert.equal(retried.status, 200);
+  assert.match(retried.body.message, /^خطة تجريبية/);
+  const eid = (await call('POST', '/api/occasions', { token, body: { type: 'eid-adha', budget: 900 } })).body;
+  const split = (await call('POST', `/api/occasions/${eid.id}/plan`, { token, language: 'ar' })).body;
+  assert.deepEqual(split.lines.map(l => l.label), ['ملابس', 'أكل', 'هدايا']);
+  await call('DELETE', `/api/occasions/${eid.id}`, { token });
+});
+
+test('Arabic replies must be mostly Arabic; English replies may contain Arabic place names', async () => {
+  const { isArabicReply, isEnglish } = await import('./ai.mjs');
+  assert.equal(isArabicReply({ message: 'زين، رتبت لك يومك', items: [{ label: 'Starbucks' }] }), true);
+  assert.equal(isArabicReply({ message: 'Here is your plan for today.' }), false);
+  assert.equal(isArabicReply({ message: '这是你的计划' }), false);
+  assert.equal(isEnglish({ message: 'Dinner at Al-Saeed (مطاعم السعيد).' }), true);
+  assert.equal(isEnglish({ message: 'План' }), false);
 });
 
 test('without a key the analyst explains how to connect it', async () => {

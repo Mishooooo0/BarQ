@@ -131,7 +131,9 @@ function checkItems(rawItems, options, budget, { allowRide }) {
   const used = new Set(); const items = []; let total = 0;
   for (const raw of rawItems.slice(0, 8)) {
     if (!raw || typeof raw !== 'object') continue;
-    const time = typeof raw.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(raw.time.trim()) ? raw.time.trim() : null;
+    // Arabic replies sometimes write the time with Arabic-Indic digits; accept them as HH:MM.
+    const rawTime = typeof raw.time === 'string' ? raw.time.trim().replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))) : '';
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(rawTime) ? rawTime : null;
     if (!time) throw new Error(`bad time "${raw.time}"`);
     let place = null; let cost;
     if (raw.placeId == null || raw.placeId === '') {

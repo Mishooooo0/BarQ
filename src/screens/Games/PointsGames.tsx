@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { t } from '../../i18n';
 
 // The games are a standalone page in public/games, embedded so their canvases and mascot run untouched.
 // The route is top-level so the relative base ('./') resolves to /games/ in both dev and build.
@@ -16,5 +17,5 @@ export function PointsGames() {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [navigate]);
-  return <iframe className="games-frame" src={gamesUrl} title="Points Challenges" />;
+  return <iframe className="games-frame" src={gamesUrl} title={t('Points Challenges')} />;
 }

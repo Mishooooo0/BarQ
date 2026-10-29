@@ -176,13 +176,15 @@ route('POST', '/api/transfers', async ({ req }) => {
   });
 });
 
-// AI Analyst
 // AI Analyst: facts are computed here, the advice and plans come from the AI (server/ai.mjs).
+// The app sends the user's language (x-barq-language: en or ar); the AI writes every text value in it.
+const languageOf = req => req.headers?.['x-barq-language'] === 'ar' ? 'Arabic' : 'English';
+const askFor = req => { const language = languageOf(req); return options => askJson({ ...options, language }); };
 route('GET', '/api/analyst/insights', ({ req }) => insights(me(read('users'), req)));
-route('GET', '/api/analyst/advice', ({ req }) => advice(me(read('users'), req), askJson));
+route('GET', '/api/analyst/advice', ({ req }) => advice(me(read('users'), req), askFor(req)));
 route('POST', '/api/analyst/daily', async ({ req }) => {
   const body = await readBody(req); const user = me(read('users'), req);
-  return dailyPlan(user, amount(body.budget, { max: Math.max(0, user.balance), allowZero: true, field: 'budget' }), askJson);
+  return dailyPlan(user, amount(body.budget, { max: Math.max(0, user.balance), allowZero: true, field: 'budget' }), askFor(req));
 });
 route('POST', '/api/analyst/hangout', async ({ req }) => {
   const body = await readBody(req); const id = currentUserId(req);
@@ -195,7 +197,7 @@ route('POST', '/api/analyst/hangout', async ({ req }) => {
     return value;
   });
   const db = read('users'); const user = findUser(db, id, 401); const group = db.groups.find(g => g.id === body.groupId);
-  return hangoutPlan(user, group, group.members.map(mid => db.users.find(u => u.id === mid)).filter(Boolean), budget, askJson);
+  return hangoutPlan(user, group, group.members.map(mid => db.users.find(u => u.id === mid)).filter(Boolean), budget, askFor(req));
 });
 route('POST', '/api/groups/:id/members', async ({ req, params }) => {
   const body = await readBody(req); const id = currentUserId(req);
@@ -401,7 +403,7 @@ route('DELETE', '/api/occasions/:id', ({ req, params }) => {
 });
 route('POST', '/api/occasions/:id/plan', ({ req, params }) => {
   const user = me(read('users'), req);
-  return suggestPlan(findOccasion(user, params.id), user, insights(user).summary.month, askJson);
+  return suggestPlan(findOccasion(user, params.id), user, insights(user).summary.month, askFor(req));
 });
 
 // Saving box (server/savings.mjs): move money between the wallet and the box, toward a goal for the end of the year.

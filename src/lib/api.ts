@@ -1,3 +1,6 @@
+import { getLang, t } from '../i18n';
+import { messageText } from '../i18n/messages';
+
 // One place for every call to the backend. Failures always become an ApiError with a readable message, so a slow,
 // restarting or broken API shows an error state instead of crashing a screen.
 export class ApiError extends Error {
@@ -32,7 +35,7 @@ export async function api<T>(path: string, { method = 'GET', body, signal, timeo
   const token = currentToken();
   let response: Response;
   try {
-    response = await fetch(path, { method, signal: controller.signal, headers: { accept: 'application/json', ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body !== undefined ? JSON.stringify(body) : undefined });
+    response = await fetch(path, { method, signal: controller.signal, headers: { accept: 'application/json', ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}), 'x-barq-language': getLang() }, body: body !== undefined ? JSON.stringify(body) : undefined });
   } catch (error) {
     if (signal?.aborted) throw error;
     throw new ApiError(controller.signal.aborted ? 'The server is taking too long to answer. Please try again.' : "Can't reach the server. Check that it is running, then try again.", 0);
@@ -49,5 +52,6 @@ export async function api<T>(path: string, { method = 'GET', body, signal, timeo
   return data as T;
 }
 
-export const errorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Something went wrong. Please try again.';
+/** A readable message for any failure, in the chosen language. */
+export const errorMessage = (error: unknown) => error instanceof ApiError ? messageText(error.message) : t('Something went wrong. Please try again.');
 export const isAbort = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';

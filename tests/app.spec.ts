@@ -138,7 +138,7 @@ test('market search, favorites and checkout charge the stored wallet', async ({ 
   await page.getByRole('navigation').getByRole('link', { name: 'Market', exact: true }).click();
   await page.getByRole('button', { name: 'Favorites', exact: true }).click();
   await expect(page.getByRole('link', { name: /Xbox gift card/ })).toBeVisible();
-  await page.getByRole('link', { name: 'Shopping cart, 1 items' }).click();
+  await page.getByRole('link', { name: 'Shopping cart, 1 item' }).click();
   await page.getByRole('button', { name: 'Complete order' }).click();
   await expect(page.getByRole('heading', { name: 'Order complete' })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Home', exact: true }).click();

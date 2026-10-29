@@ -5,7 +5,10 @@ import { api, errorMessage } from '../../lib/api';
 import { DetailHeader, ErrorState, MockNote, Money } from '../../components/ui/Primitives';
 import { AnalystSprite } from '../Analyst/AnalystSprite';
 import { addDaysKey, countdown, formatDay, todayKey } from './occasionParts';
+import { NumberField } from '../../components/NumberField';
 import type { Occasion, OccasionType, OccasionTypeId } from '../../types/api';
+import { digits, t, tn } from '../../i18n';
+import { knownText, occasionTypeName } from '../../i18n/data';
 
 /** Occasions: budgets for Eid al-Fitr, Eid al-Adha (with Eidia), graduations, home parties and holiday trips. */
 export function Occasions() {
@@ -33,36 +36,37 @@ export function Occasions() {
   useEffect(() => { if (type) setDate(type.expectedDate ?? addDaysKey(todayKey(), 30)); }, [type]);
   const budgetValue = Number(budget);
   const valid = !!type && budget.trim() !== '' && Number.isFinite(budgetValue) && budgetValue >= 1 && /^\d{4}-\d{2}-\d{2}$/.test(date);
-  const placeholder = useMemo(() => type ? `${type.name} ${date.slice(0, 4)}` : '', [type, date]);
+  const placeholder = useMemo(() => type ? `${occasionTypeName(type.id)} ${digits(date.slice(0, 4))}` : '', [type, date]);
 
   const create = async () => {
     if (!valid || creating.busy) return;
     setCreating({ busy: true, error: '' });
     try {
-      const made = await api<Occasion>('/api/occasions', { method: 'POST', body: { type: typeId, title: title.trim(), date, budget: budgetValue } });
+      // The name defaults to the type and year, written in the chosen language.
+      const made = await api<Occasion>('/api/occasions', { method: 'POST', body: { type: typeId, title: title.trim() || placeholder, date, budget: budgetValue } });
       navigate(`/occasions/${made.id}`);
     } catch (e) { setCreating({ busy: false, error: errorMessage(e) }); }
   };
 
-  return <><DetailHeader title="Occasions" fallback="/" /><div className="detail-content analyst-content">
-    <section className="analyst-hero"><AnalystSprite pose="celebrate" /><p className="analyst-bubble">Eid, graduation, a party at home or a trip: set a budget and I'll split it into lines, keep your Eidia list and tell you how much to put aside each week.</p></section>
-    {error ? <ErrorState message={error} onRetry={() => void load()} /> : !types || !occasions ? <p className="muted center" role="status">Loading occasions…</p> : <>
-      <section className="analyst-section"><h3>Your occasions</h3>
-        {!occasions.length ? <p className="muted">Nothing planned yet. Start one below.</p> : <div className="occasion-list">{occasions.map(o => <Link key={o.id} className={`occasion-card ${o.past ? 'past' : ''}`} to={`/occasions/${o.id}`}>
-          <div className="occasion-card-top"><span className={`occasion-chip ${o.type}`}>{o.typeName}</span><small><CalendarDays size={12} /> {formatDay(o.date)} · {countdown(o)}</small></div>
+  return <><DetailHeader title={t('Occasions')} fallback="/" /><div className="detail-content analyst-content">
+    <section className="analyst-hero"><AnalystSprite pose="celebrate" /><p className="analyst-bubble">{t("Eid, graduation, a party at home or a trip: set a budget and I'll split it into lines, keep your Eidia list and tell you how much to put aside each week.")}</p></section>
+    {error ? <ErrorState message={error} onRetry={() => void load()} /> : !types || !occasions ? <p className="muted center" role="status">{t('Loading occasions…')}</p> : <>
+      <section className="analyst-section"><h3>{t('Your occasions')}</h3>
+        {!occasions.length ? <p className="muted">{t('Nothing planned yet. Start one below.')}</p> : <div className="occasion-list">{occasions.map(o => <Link key={o.id} className={`occasion-card ${o.past ? 'past' : ''}`} to={`/occasions/${o.id}`}>
+          <div className="occasion-card-top"><span className={`occasion-chip ${o.type}`}>{occasionTypeName(o.type)}</span><small><CalendarDays size={12} /> {formatDay(o.date)} · {countdown(o)}</small></div>
           <strong>{o.title}</strong>
           <div className="progress small" aria-hidden="true"><span className={o.totals.over ? 'over' : ''} style={{ width: `${Math.min(100, o.budget ? o.totals.planned / o.budget * 100 : 0)}%` }} /></div>
-          <div className="occasion-card-bottom"><span>Planned <Money amount={o.totals.planned} /> of <Money amount={o.budget} /></span>{o.totals.over ? <span className="error-text">Over budget</span> : <ChevronRight size={16} />}</div>
+          <div className="occasion-card-bottom"><span>{tn('Planned {planned} of {budget}', { planned: <Money amount={o.totals.planned} />, budget: <Money amount={o.budget} /> })}</span>{o.totals.over ? <span className="error-text">{t('Over budget')}</span> : <ChevronRight size={16} />}</div>
         </Link>)}</div>}
       </section>
 
-      <section className="analyst-section"><h3>Plan a new occasion</h3>
-        <div className="group-chips" role="radiogroup" aria-label="Occasion type">{types.map(t => <button key={t.id} type="button" role="radio" aria-checked={t.id === typeId} onClick={() => setTypeId(t.id)}>{t.name}</button>)}</div>
-        {type && <p className="fine-print">Starts with: {type.lines.join(', ')}{type.eidia ? ', plus your Eidia list' : ''}.{type.expectedDate ? ` Expected date: ${formatDay(type.expectedDate)} (Eid dates follow the moon, so change it if needed).` : ''}</p>}
-        <label className="field-label">Name<input aria-label="Occasion name" value={title} maxLength={40} placeholder={placeholder} onChange={e => setTitle(e.target.value)} /></label>
-        <label className="field-label">Date<input aria-label="Occasion date" type="date" value={date} min={todayKey()} onChange={e => setDate(e.target.value)} /></label>
-        <label className="field-label">Total budget (SAR)<input aria-label="Occasion budget" type="number" inputMode="decimal" min="1" step="1" value={budget} onChange={e => setBudget(e.target.value)} /></label>
-        <button type="button" className="primary-button" onClick={() => void create()} disabled={!valid || creating.busy}>{creating.busy ? 'Creating…' : 'Create the budget'}</button>
+      <section className="analyst-section"><h3>{t('Plan a new occasion')}</h3>
+        <div className="group-chips" role="radiogroup" aria-label={t('Occasion type')}>{types.map(option => <button key={option.id} type="button" role="radio" aria-checked={option.id === typeId} onClick={() => setTypeId(option.id)}>{occasionTypeName(option.id)}</button>)}</div>
+        {type && <p className="fine-print">{t(type.eidia ? 'Starts with: {lines}, plus your Eidia list.' : 'Starts with: {lines}.', { lines: type.lines.map(knownText).join(t(', ')) })}{type.expectedDate ? ` ${t('Expected date: {date} (Eid dates follow the moon, so change it if needed).', { date: formatDay(type.expectedDate) })}` : ''}</p>}
+        <label className="field-label">{t('Name')}<input aria-label={t('Occasion name')} value={title} maxLength={40} placeholder={placeholder} onChange={e => setTitle(e.target.value)} /></label>
+        <label className="field-label">{t('Date')}<input aria-label={t('Occasion date')} type="date" value={date} min={todayKey()} onChange={e => setDate(e.target.value)} /></label>
+        <label className="field-label">{t('Total budget (SAR)')}<NumberField aria-label={t('Occasion budget')} value={budget} onChange={setBudget} /></label>
+        <button type="button" className="primary-button" onClick={() => void create()} disabled={!valid || creating.busy}>{creating.busy ? t('Creating…') : t('Create the budget')}</button>
         {creating.error && <p className="error-text" role="alert">{creating.error}</p>}
       </section>
     </>}

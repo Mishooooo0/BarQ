@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
-import { api } from '../lib/api';
+import { api, errorMessage } from '../lib/api';
 import { products } from '../data/mock';
 import { toTransaction } from '../lib/format';
 import { useSession, useUser } from './SessionProvider';
@@ -57,7 +57,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const [me, list] = await Promise.all([api<User>('/api/me'), api<{ items: ServerTransaction[] }>('/api/me/transactions')]);
       setUser(me); setTransactions(list.items); setHistory({ loading: false, error: null });
     } catch (error) {
-      setHistory({ loading: false, error: error instanceof Error ? error.message : 'Could not load your activity.' });
+      setHistory({ loading: false, error: errorMessage(error) });
     }
   }, [setUser]);
 

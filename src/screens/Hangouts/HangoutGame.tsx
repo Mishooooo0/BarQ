@@ -5,6 +5,7 @@ import { useWallet } from '../../app/WalletProvider';
 import { api, ApiError, errorMessage } from '../../lib/api';
 import { DetailHeader, ErrorState, Money } from '../../components/ui/Primitives';
 import type { GameSession, Hangout } from '../../types/api';
+import { num, t, tn } from '../../i18n';
 
 const gameUrl = `${import.meta.env.BASE_URL}games/points-games.html?embed&play=fly&report`;
 
@@ -28,11 +29,11 @@ export function HangoutGame() {
     setError('');
     try {
       const found = (await api<Hangout[]>('/api/hangouts')).find(h => h.id === id);
-      if (!found) throw new Error('This hangout was not found.');
-      if (!found.sessionId) throw new Error('This hangout has no game.');
+      if (!found) throw new Error(t('This hangout was not found.'));
+      if (!found.sessionId) throw new Error(t('This hangout has no game.'));
       setHangout(found);
       await refreshSession(found.sessionId);
-    } catch (e) { setError(e instanceof Error ? e.message : errorMessage(e)); }
+    } catch (e) { setError(e instanceof ApiError || !(e instanceof Error) ? errorMessage(e) : e.message); }
   }, [id, refreshSession]);
   useEffect(() => { void load(); }, [load]);
 
@@ -56,7 +57,7 @@ export function HangoutGame() {
       try { setSession(await api<GameSession>(`/api/game-sessions/${session.id}/scores`, { method: 'POST', body: { playerId, points } })); }
       catch (e) {
         // Someone already played this turn (for example on another phone): show the latest board instead of failing.
-        if (e instanceof ApiError && e.status === 409) { setNote(`${nameOf(playerId)} has already played.`); await refreshSession(session.id).catch(() => {}); }
+        if (e instanceof ApiError && e.status === 409) { setNote(t('{name} has already played.', { name: nameOf(playerId) })); await refreshSession(session.id).catch(() => {}); }
         else setNote(errorMessage(e));
       } finally { setSaving(false); setPlayingFor(null); }
     };
@@ -71,20 +72,20 @@ export function HangoutGame() {
   const mine = unplayed.includes(user.id);
   const others = isHost ? unplayed.filter(p => p !== user.id) : [];
 
-  return <><DetailHeader title="Who pays?" fallback="/hangouts" /><div className="detail-content hangout-game">
-    {error ? <ErrorState message={error} onRetry={() => void load()} /> : !hangout || !session ? <p className="muted center" role="status">Loading the game…</p> : <>
-      <p className="muted center">{session.players.map(nameOf).join(' vs ')} · the highest score pays <Money amount={session.billAmount} /></p>
-      <ul className="score-board" aria-label="Scores">{session.players.map(p => { const score = session.rounds.reduce<number | null>((sum, r) => p in r.scores ? (sum ?? 0) + r.scores[p] : sum, null); return <li key={p} className={session.result?.payer === p ? 'payer' : ''}><span>{p === user.id ? `${nameOf(p)} (you)` : nameOf(p)}</span><strong>{score ?? 'Not played'}</strong></li>; })}</ul>
+  return <><DetailHeader title={t('Who pays?')} fallback="/hangouts" /><div className="detail-content hangout-game">
+    {error ? <ErrorState message={error} onRetry={() => void load()} /> : !hangout || !session ? <p className="muted center" role="status">{t('Loading the game…')}</p> : <>
+      <p className="muted center">{tn('{players} · the highest score pays {amount}', { players: session.players.map(nameOf).join(t(' vs ')), amount: <Money amount={session.billAmount} /> })}</p>
+      <ul className="score-board" aria-label={t('Scores')}>{session.players.map(p => { const score = session.rounds.reduce<number | null>((sum, r) => p in r.scores ? (sum ?? 0) + r.scores[p] : sum, null); return <li key={p} className={session.result?.payer === p ? 'payer' : ''}><span>{p === user.id ? t('{name} (you)', { name: nameOf(p) }) : nameOf(p)}</span><strong>{score == null ? t('Not played') : num(score)}</strong></li>; })}</ul>
       {note && <p className="muted center" role="status">{note}</p>}
-      {session.status !== 'playing' && session.result ? <div className="success-panel" role="status"><Trophy /><h2>{nameOf(session.result.payer)} pays the bill</h2><p>Highest score: {session.result.totals[session.result.payer]} points.{session.result.tied.length ? ' It was a tie, so the best single round decided it.' : ''}</p><Link className="primary-button" to="/hangouts">Back to Hangouts</Link></div>
+      {session.status !== 'playing' && session.result ? <div className="success-panel" role="status"><Trophy /><h2>{t('{name} pays the bill', { name: nameOf(session.result.payer) })}</h2><p>{t('Highest score: {points} points.', { points: session.result.totals[session.result.payer] })}{session.result.tied.length ? ` ${t('It was a tie, so the best single round decided it.')}` : ''}</p><Link className="primary-button" to="/hangouts">{t('Back to Hangouts')}</Link></div>
         : playingFor ? <>
-          <p className="hangout-question center">{playingFor === user.id ? 'Your turn' : `${nameOf(playingFor)} is playing`}…</p>
-          {saving && <p className="muted center" role="status">Saving the score…</p>}
-          <iframe key={playingFor} className="hangout-frame" title="Flappy Bird" src={gameUrl} />
+          <p className="hangout-question center">{playingFor === user.id ? t('Your turn…') : t('{name} is playing…', { name: nameOf(playingFor) })}</p>
+          {saving && <p className="muted center" role="status">{t('Saving the score…')}</p>}
+          <iframe key={playingFor} className="hangout-frame" title={t('Flappy Bird')} src={gameUrl} />
         </> : <>
-          {mine && <div className="info-panel center"><h3>Your turn</h3><p>Fly through the gaps. When the flight ends, your score is saved automatically.</p><button type="button" className="primary-button" onClick={() => setPlayingFor(user.id)}>Play Flappy Bird</button></div>}
-          {others.length > 0 && <div className="info-panel center"><h3>Playing on one phone?</h3><p>As the host you can hand this phone to a player.</p>{others.map(p => <button key={p} type="button" className="secondary-button" onClick={() => setPlayingFor(p)}>Play for {nameOf(p)}</button>)}</div>}
-          {!mine && !others.length && <p className="muted center" role="status">Waiting for {unplayed.map(nameOf).join(' and ')} to play…</p>}
+          {mine && <div className="info-panel center"><h3>{t('Your turn')}</h3><p>{t('Fly through the gaps. When the flight ends, your score is saved automatically.')}</p><button type="button" className="primary-button" onClick={() => setPlayingFor(user.id)}>{t('Play Flappy Bird')}</button></div>}
+          {others.length > 0 && <div className="info-panel center"><h3>{t('Playing on one phone?')}</h3><p>{t('As the host you can hand this phone to a player.')}</p>{others.map(p => <button key={p} type="button" className="secondary-button" onClick={() => setPlayingFor(p)}>{t('Play for {name}', { name: nameOf(p) })}</button>)}</div>}
+          {!mine && !others.length && <p className="muted center" role="status">{t('Waiting for {names} to play…', { names: unplayed.map(nameOf).join(t(' and ')) })}</p>}
         </>}
     </>}
   </div></>;

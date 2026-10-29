@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError, currentToken, errorMessage, onSessionExpired, setToken } from '../lib/api';
 import type { User } from '../types/api';
+import { t } from '../i18n';
 
 type Status = 'checking' | 'signed-out' | 'signed-in' | 'unreachable';
 interface Session {
@@ -29,7 +30,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, [attempt]);
 
-  useEffect(() => onSessionExpired(() => { setToken(null); setUser(null); setNotice('Your session ended. Please sign in again.'); setStatus('signed-out'); }), []);
+  useEffect(() => onSessionExpired(() => { setToken(null); setUser(null); setNotice(t('Your session ended. Please sign in again.')); setStatus('signed-out'); }), []);
 
   const signIn = useCallback(async (userId: string, pin: string) => {
     const result = await api<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: { userId, pin } });

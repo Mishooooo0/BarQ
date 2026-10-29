@@ -225,3 +225,13 @@ Tool: Codex — Developer: Unassigned (report and publication requested by repos
 **Open items:** None.
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
+
+## 2026-10-29 16:32 (Asia/Riyadh)
+
+**Update:** Added an Arabic language toggle for the whole app (sign-in screen, Products header and account sheet; remembered per device). Every screen, sheet, button, error and accessibility label has Arabic in a warm, everyday Saudi voice (the dialect is never named in the app). The layout turns right to left, with the IBM Plex Sans Arabic font, mirrored arrows and sliders. Every amount, date, time, count and percentage uses Arabic-Indic digits with Arabic separators; number fields show Arabic digits and accept Arabic or Western digits. Text the server stores or sends in English (transaction titles, categories, occasion types and starting lines, hangout results, spending alerts, server and connection errors) is shown in Arabic; names of people and places keep their own direction inside Arabic sentences. The AI payload no longer forces English: the app sends `x-barq-language`, the AI data carries `language: "English"` or `"Arabic"`, Barq's instructions name that language, and Arabic replies must be mostly Arabic (rejected and retried otherwise; Arabic-Indic times are accepted). Occasions are sent to the AI with their Arabic name as well. The English cart label now reads "1 item".
+
+**Validation:** TypeScript and production build passed. 32 backend tests passed (new: the AI writes in the requested language, an English reply to an Arabic request is retried, the Arabic reply check) plus 4 dictionary checks (every text has Arabic, plural forms, placeholders kept, no English in the Arabic). 33 Playwright tests passed (new: the toggle with right-to-left layout, Arabic digits, a translated server error and reload; Barq's Arabic answers; Occasions, Eidia and the Saving box in Arabic; a scan of every Arabic screen and sheet for leftover English). Reviewed every screen and sheet in Arabic and English in Chrome against a scratch database.
+
+**Open items:** None.
+
+Tool: Claude Code — Developer: Mister M (`Meshal` branch)

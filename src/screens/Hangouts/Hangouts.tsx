@@ -9,6 +9,7 @@ import { AnsweredBy, BudgetSlider, PlanView, useRequest, wholeRiyals } from '../
 import { HangoutVotes } from './HangoutVotes';
 import { PaymentDone } from '../../components/PaymentDone';
 import type { Group, Hangout, HangoutPlan, Pose } from '../../types/api';
+import { digits, t } from '../../i18n';
 
 /** Hangouts: your groups, the AI plan for an outing, and the group's "who pays?" votes. */
 export function Hangouts() {
@@ -60,53 +61,53 @@ export function Hangouts() {
       const updated = await api<Group>(`/api/groups/${encodeURIComponent(groupId)}/members`, { method: 'POST', body: { userId: newMember } });
       void fetchGroups();
       setNewMember('');
-      setAdding({ busy: false, error: '', done: `${updated.members.at(-1)?.name ?? 'They'} joined ${updated.name}.` });
+      setAdding({ busy: false, error: '', done: t('{name} joined {group}.', { name: updated.members.at(-1)?.name ?? '', group: updated.name }) });
     } catch (error) { setAdding({ busy: false, error: errorMessage(error), done: '' }); }
   };
 
-  let pose: Pose = 'places'; let speech = "Pick your group and your budget. I'll plan around the smallest budget so nobody feels awkward.";
+  let pose: Pose = 'places'; let speech = t("Pick your group and your budget. I'll plan around the smallest budget so nobody feels awkward.");
   if (plan.error) { pose = 'think'; speech = plan.error; }
-  else if (plan.loading) { pose = 'laptop'; speech = 'Finding places that fit everyone… this can take up to a minute.'; }
-  else if (plan.data) { pose = plan.data.pose; speech = plan.data.message; }
+  else if (plan.loading) { pose = 'laptop'; speech = t('Finding places that fit everyone… this can take up to a minute.'); }
+  else if (plan.data) { pose = plan.data.pose; speech = digits(plan.data.message); }
 
   const group = groups.data?.find(g => g.id === groupId);
   // A hangout ends when everyone who owed has paid; it then moves from Active to History.
   const active = hangouts.data?.filter(h => h.status !== 'settled') ?? null;
   const history = hangouts.data?.filter(h => h.status === 'settled') ?? null;
   const outside = group ? directory.filter(d => !group.members.some(m => m.id === d.id)) : [];
-  return <><DetailHeader title="Hangouts" fallback="/" /><div className="detail-content analyst-content">
+  return <><DetailHeader title={t('Hangouts')} fallback="/" /><div className="detail-content analyst-content">
     <section className="analyst-hero" aria-live="polite"><AnalystSprite pose={pose} /><p className="analyst-bubble">{speech}</p></section>
-    {groups.error ? <ErrorState message={groups.error} onRetry={fetchGroups} /> : !groups.data ? <p className="muted center" role="status">Loading groups…</p> : !groups.data.length ? <p className="muted">You are not in any group yet.</p> : <>
-      <div className="group-chips" role="radiogroup" aria-label="Group">{groups.data.map(g => <button key={g.id} role="radio" aria-checked={g.id === groupId} onClick={() => setGroupId(g.id)}><Users size={14} /> {g.name}</button>)}</div>
-      {group && <ul className="member-list" aria-label="Members">{group.members.map(m => <li key={m.id}><span className={`dot ${m.ready || m.id === user.id ? 'ready' : ''}`} />{m.id === user.id ? `${m.name} (you)` : m.name}<small>{m.id === user.id ? 'your budget below' : m.ready ? 'budget set' : 'no budget yet'}</small></li>)}</ul>}
+    {groups.error ? <ErrorState message={groups.error} onRetry={fetchGroups} /> : !groups.data ? <p className="muted center" role="status">{t('Loading groups…')}</p> : !groups.data.length ? <p className="muted">{t('You are not in any group yet.')}</p> : <>
+      <div className="group-chips" role="radiogroup" aria-label={t('Group')}>{groups.data.map(g => <button key={g.id} role="radio" aria-checked={g.id === groupId} onClick={() => setGroupId(g.id)}><Users size={14} /> <bdi>{g.name}</bdi></button>)}</div>
+      {group && <ul className="member-list" aria-label={t('Members')}>{group.members.map(m => <li key={m.id}><span className={`dot ${m.ready || m.id === user.id ? 'ready' : ''}`} />{m.id === user.id ? t('{name} (you)', { name: m.name }) : m.name}<small>{m.id === user.id ? t('your budget below') : m.ready ? t('budget set') : t('no budget yet')}</small></li>)}</ul>}
       {group && outside.length > 0 && <div className="add-member">
-        <label className="sr-only" htmlFor="add-member">Add someone to {group.name}</label>
-        <select id="add-member" value={newMember} onChange={e => { setNewMember(e.target.value); setAdding({ busy: false, error: '', done: '' }); }}><option value="">Add someone to {group.name}…</option>{outside.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-        <button type="button" className="secondary-button" onClick={addMember} disabled={!newMember || adding.busy}><UserPlus size={15} />{adding.busy ? 'Adding…' : 'Add'}</button>
+        <label className="sr-only" htmlFor="add-member">{t('Add someone to {group}', { group: group.name })}</label>
+        <select id="add-member" value={newMember} onChange={e => { setNewMember(e.target.value); setAdding({ busy: false, error: '', done: '' }); }}><option value="">{t('Add someone to {group}…', { group: group.name })}</option>{outside.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <button type="button" className="secondary-button" onClick={addMember} disabled={!newMember || adding.busy}><UserPlus size={15} />{adding.busy ? t('Adding…') : t('Add')}</button>
       </div>}
       {adding.error && <p className="error-text" role="alert">{adding.error}</p>}
       {adding.done && <p className="success-text" role="status">{adding.done}</p>}
-      <BudgetSlider label="Your hangout budget" value={budget} max={balance} onChange={setBudgetChoice} />
-      <p className="fine-print">Only you see your budget. Friends see the plan, never each other's numbers.</p>
-      <button className="primary-button" onClick={runPlan} disabled={plan.loading || !groupId}>{plan.loading ? 'Planning…' : 'Plan the hangout'}</button>
+      <BudgetSlider label={t('Your hangout budget')} value={budget} max={balance} onChange={setBudgetChoice} />
+      <p className="fine-print">{t("Only you see your budget. Friends see the plan, never each other's numbers.")}</p>
+      <button className="primary-button" onClick={runPlan} disabled={plan.loading || !groupId}>{plan.loading ? t('Planning…') : t('Plan the hangout')}</button>
       {plan.error && <ErrorState message={plan.error} onRetry={runPlan} />}
       {plan.data && !plan.error && <>
-        <div className="info-panel per-person"><p>Budget per person everyone can manage</p><Money amount={plan.data.perPersonBudget} />{plan.data.pending.length > 0 && <p className="fine-print">Planned without {plan.data.pending.join(', ')}: no budget set yet.</p>}</div>
-        <PlanView items={plan.data.items} footer={<><div><span>Per person</span><Money amount={plan.data.perPersonTotal} /></div><div><span>Whole group ({plan.data.groupSize})</span><Money amount={plan.data.groupTotal} /></div></>} />
+        <div className="info-panel per-person"><p>{t('Budget per person everyone can manage')}</p><Money amount={plan.data.perPersonBudget} />{plan.data.pending.length > 0 && <p className="fine-print">{t('Planned without {names}: no budget set yet.', { names: plan.data.pending.join(t(', ')) })}</p>}</div>
+        <PlanView items={plan.data.items} footer={<><div><span>{t('Per person')}</span><Money amount={plan.data.perPersonTotal} /></div><div><span>{t('Whole group ({count})', { count: plan.data.groupSize })}</span><Money amount={plan.data.groupTotal} /></div></>} />
         <AnsweredBy info={plan.data} />
-        {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? 'Starting the vote…' : "Ask the group: who's paying?"}</button>}
+        {plan.data.items.some(i => i.place) && plan.data.group.id === groupId && <button type="button" className="primary-button" onClick={askGroup} disabled={asking.busy}>{asking.busy ? t('Starting the vote…') : t("Ask the group: who's paying?")}</button>}
         {asking.error && <p className="error-text" role="alert">{asking.error}</p>}
       </>}
-      <section className="analyst-section"><h3>Who's paying? Group votes</h3>
-        {paid != null && <PaymentDone title="Payment done"><Money amount={paid} /><p>Paid from your barq wallet and saved in Payments. Once everyone has paid, the hangout moves to History.</p><button type="button" className="secondary-button" onClick={() => setPaid(null)}>Done</button></PaymentDone>}
-        <div className="filter-tabs hangout-tabs" role="tablist" aria-label="Hangouts">
-          <button role="tab" aria-selected={view === 'active'} aria-pressed={view === 'active'} onClick={() => setView('active')}>Active{active ? ` (${active.length})` : ''}</button>
-          <button role="tab" aria-selected={view === 'history'} aria-pressed={view === 'history'} onClick={() => setView('history')}>History{history ? ` (${history.length})` : ''}</button>
+      <section className="analyst-section"><h3>{t("Who's paying? Group votes")}</h3>
+        {paid != null && <PaymentDone title={t('Payment done')}><Money amount={paid} /><p>{t('Paid from your barq wallet and saved in Payments. Once everyone has paid, the hangout moves to History.')}</p><button type="button" className="secondary-button" onClick={() => setPaid(null)}>{t('Done')}</button></PaymentDone>}
+        <div className="filter-tabs hangout-tabs" role="tablist" aria-label={t('Hangouts')}>
+          <button role="tab" aria-selected={view === 'active'} aria-pressed={view === 'active'} onClick={() => setView('active')}>{active ? t('Active ({count})', { count: active.length }) : t('Active')}</button>
+          <button role="tab" aria-selected={view === 'history'} aria-pressed={view === 'history'} onClick={() => setView('history')}>{history ? t('History ({count})', { count: history.length }) : t('History')}</button>
         </div>
         {view === 'active' ? <>
-          <p className="fine-print">One "I will pay it" pays. Two or more play Flappy Bird, each on their own phone, and the highest score pays. Otherwise the most votes win, and a tie means everyone pays their own.</p>
-          <HangoutVotes hangouts={active} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} onPaid={setPaid} empty="No active hangouts. Plan one above, then ask the group who's paying." />
-        </> : <HangoutVotes hangouts={history} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} empty="Finished hangouts appear here once everyone has paid." />}
+          <p className="fine-print">{t('One "I will pay it" pays. Two or more play Flappy Bird, each on their own phone, and the highest score pays. Otherwise the most votes win, and a tie means everyone pays their own.')}</p>
+          <HangoutVotes hangouts={active} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} onPaid={setPaid} empty={t("No active hangouts. Plan one above, then ask the group who's paying.")} />
+        </> : <HangoutVotes hangouts={history} error={hangouts.error} onRetry={() => void fetchHangouts()} onChange={() => void fetchHangouts()} empty={t('Finished hangouts appear here once everyone has paid.')} />}
       </section>
     </>}
     <MockNote />

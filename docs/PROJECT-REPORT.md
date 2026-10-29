@@ -35,6 +35,7 @@ All accounts currently start from zero: no balances, no transactions, no budgets
 | 22:49 | Hangouts page; Barq naming; English structured output; game turn fix; payment character | Claude Code |
 | 23:03 | Hangouts history; account progress reset on both machines | Claude Code |
 | 29 Oct, 00:25 | Occasions (Eid al-Fitr, Eid al-Adha, graduation, home party, holiday trip) with Eidia lists; Saving box with an end-of-year goal; phone status bar removed | Claude Code |
+| 29 Oct | UI polish pass; Arabic language toggle for the whole app (right to left, Arabic-Indic digits, Saudi voice) and AI answers in the chosen language | Claude Code |
 
 ## 3. Architecture
 
@@ -101,6 +102,10 @@ Node server (server/api.mjs) ──► AI: Claude-Dev  ──(slow/failing)─�
 ### Market → Pay at places
 - Buy from any of the 208 places, filter by category or search, change the payment date (today or up to a year back). The record is saved as name, price, category and date.
 
+### Arabic
+- A toggle on the sign-in screen, the Products header and the account sheet switches the whole app to Arabic: right-to-left layout, Arabic-Indic digits for every amount, date and count, and a warm, everyday Saudi voice. Server text (transactions, categories, results, errors) is shown in Arabic too.
+- The AI writes in the chosen language: the language is sent with each request and in the AI's data, and replies in the wrong language are rejected and retried.
+
 ### Barq character
 - The pixel-art analyst appears throughout the app and changes pose with what he says. After every payment (Pay at places, Market order, transfer, hangout bill) he gives an OK sign over the confirmation.
 
@@ -119,8 +124,8 @@ Crash recovery was tested on the Ring server: after the process was killed, Dock
 
 ## 7. Quality
 
-- **Backend tests (30):** databases, sign-in and lockout, forged tokens, empty starting accounts, wallet operations, transfers, payments with back-dated entries, groups, game sessions, all voting scenarios, occasions and Eidia (including validation and Barq's split), the Saving box, AI validation (retries, invented places rejected, English enforced), the AI fallback, and migration of older databases.
-- **Browser tests (29):** every main screen, sign-in, wallet flows, Market, rewards, the Analyst, Hangouts with votes, the game and History, Occasions with Eidia, the Saving box, no phone status bar, a simulated backend outage, a LAN-address crash regression, narrow screens and desktop layout.
+- **Backend tests (32):** databases, sign-in and lockout, forged tokens, empty starting accounts, wallet operations, transfers, payments with back-dated entries, groups, game sessions, all voting scenarios, occasions and Eidia (including validation and Barq's split), the Saving box, AI validation (retries, invented places rejected, the chosen language enforced for English and Arabic), the AI fallback, and migration of older databases. Plus 4 checks that the Arabic dictionary covers every text, keeps placeholders and plural forms, and contains no English.
+- **Browser tests (33):** every main screen, the Arabic toggle (right to left, Arabic digits, Arabic AI answers, translated server errors, and a scan of every Arabic screen and sheet for leftover English), sign-in, wallet flows, Market, rewards, the Analyst, Hangouts with votes, the game and History, Occasions with Eidia, the Saving box, no phone status bar, a simulated backend outage, a LAN-address crash regression, narrow screens and desktop layout.
 - Tests use isolated databases and a local stand-in for both AI engines; they never touch real data or call the real AI.
 - The UI does not break when the backend changes or fails: every screen shows a readable error with Try again, and an error boundary protects the rest of the app.
 
