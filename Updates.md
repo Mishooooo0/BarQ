@@ -242,6 +242,6 @@ Tool: Claude Code — Developer: Mister M (`Meshal` branch)
 
 **Validation:** TypeScript and production build passed. 36 backend tests passed (new: the five games, three-game sessions with Flappy Bird first and varying second and third games, playing in order without waiting, wrong-game and repeated scores refused, highest total pays, creating groups and its validation, the saving plan per day/week/month including the day itself and past occasions, Barq's saving output corrected to the server's numbers, older databases gaining the four games) plus 4 dictionary checks. 35 Playwright tests passed (new: a three-game hangout played through the real games page, Create a group in English and Arabic, the saving plan on the occasion page and in Barq's answer). Played Building, Reaction, Precision, Number Order and Flappy Bird for real in report mode: each sent exactly the points it showed, once, and nothing is sent outside a hangout game. Reviewed the new screens in English and Arabic.
 
-**Open items:** Points are added as each game counts them, so Reaction and Precision (up to 500) weigh more in a total than Number Order (up to 150). Not yet deployed or pushed.
+**Open items:** Points are added as each game counts them, so Reaction and Precision (up to 500) weigh more in a total than Number Order (up to 150).
 
 Tool: Claude Code — Developer: Mister M (`Meshal` branch)
